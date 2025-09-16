@@ -16,7 +16,7 @@ test:
 	$(UV) run --group dev pytest -q
 
 data:
-	$(PYTHON) -m hedge_fund_ml.cli data
+	$(PYTHON) scripts/data_prepare.py
 
 train_ae:
 	$(PYTHON_DL) -m hedge_fund_ml.cli train-ae
