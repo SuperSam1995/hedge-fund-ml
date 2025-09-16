@@ -40,7 +40,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["hedge_fund_ml*"]
+include = ["hedge_fund_ml*", "features*"]
 
 [tool.setuptools.package-dir]
 "" = "src"

@@ -1,4 +1,4 @@
-.PHONY: setup lint test data train_ae train_gan replicate eval report reproduce
+.PHONY: setup lint test data features train_ae train_gan replicate eval report reproduce
 
 UV ?= uv
 PYTHON := $(UV) run --group dev python
@@ -17,6 +17,9 @@ test:
 
 data:
 	$(PYTHON) scripts/data_prepare.py
+
+features:
+	$(PYTHON) -m scripts.build_features --config configs/features.yaml
 
 train_ae:
 	$(PYTHON_DL) -m hedge_fund_ml.cli train-ae
