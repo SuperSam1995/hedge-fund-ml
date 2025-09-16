@@ -1,0 +1,6 @@
+seed: 42
+packages:
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
