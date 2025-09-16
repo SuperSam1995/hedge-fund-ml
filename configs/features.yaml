@@ -1,0 +1,33 @@
+seed: 42
+packages:
+  - numpy
+  - pandas
+  - scikit-learn
+  - statsmodels
+
+data:
+  factors: cleaned_data/factor_etf_data.csv
+  targets: cleaned_data/hfd.csv
+  output_features: data/interim/features.csv
+  output_model: data/interim/hk_span_model.json
+  metadata: reports/metadata/features.json
+
+split:
+  train_start: 1994-04-30
+  train_end: 2015-12-31
+  test_start: 2016-01-31
+  test_end: 2022-04-30
+
+returns:
+  horizon: 1
+  lag_periods: [1, 3, 6, 12]
+  source: returns
+  dropna: true
+
+volatility:
+  ddof: 1
+  min_std: 1.0e-06
+
+hk_span:
+  add_intercept: true
+  ridge_alpha: 0.0
