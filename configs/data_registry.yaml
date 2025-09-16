@@ -1,0 +1,37 @@
+# Central catalogue of datasets managed by the DataRegistry.
+datasets:
+  etf_data:
+    stage: raw
+    filename: ETF_data.csv
+    description: Daily ETF returns used as reconstruction targets.
+    checksum: b59238f477f66fd36cf5d498f078911322d6f8e08bd5e2d1fee197b879961ab2
+  etf_data_full:
+    stage: raw
+    filename: ETF_data_full.csv
+    description: Extended ETF panel with additional assets for analysis.
+    checksum: f15aecdbe79f214d3e6ad32052cb6e641f091423d513966d1e808f8b6ee7caf6
+  fama_french_5x3:
+    stage: raw
+    filename: F-F_Research_Data_5_Factors_2x3_daily.CSV
+    description: Fama-French research factors (5x3 daily formulation).
+    checksum: c2266f8ea940e082a53fba51daffb5b4b380cb03f3dd01ead3b0b775f910d6e2
+  fama_french_5:
+    stage: raw
+    filename: F-F_Research_Data_Factors_daily.CSV
+    description: Fama-French five factor daily data set.
+    checksum: fd26ee9340bc571694e664b3161768fdddaab7d31626c8b44168737a5e36d750
+  navror_full:
+    stage: raw
+    filename: NAVROR_full.csv
+    description: Hedge fund NAV and return observations.
+    checksum: b78069847bca67bccdfc60d9ccd99200bbbc2980f0fb86312dce777ffa948033
+  volume_daily:
+    stage: raw
+    filename: Volume.csv
+    description: Daily ETF volume series aligned with the return data.
+    checksum: b66163e5580765d547d6fa54f1ba201c0d06d3156b89187897752f8f351ce541
+  volume_monthly:
+    stage: raw
+    filename: Volume.xlsx
+    description: Monthly ETF volume summary extracted from Bloomberg.
+    checksum: 6226a8ce2cc27e67c3de4f8c558b9562304f3c64f9018a2610a19e70c7f0237d
