@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import numpy as np
-
 from hedge_fund_ml.utils.finance import (
     factor_hf_split,
     normalization,

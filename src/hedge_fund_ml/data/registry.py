@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Dict, Iterator, Literal, cast
+from typing import Dict, Iterator, Literal
 
 import yaml
 from pydantic import BaseModel, Field
