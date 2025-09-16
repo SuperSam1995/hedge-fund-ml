@@ -1,6 +1,9 @@
 """
-    encapsulated class AE
+encapsulated class AE
 """
+
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 from keras import Model, Sequential
@@ -9,25 +12,23 @@ from keras.layers import Dense, LeakyReLU
 from keras.losses import MeanSquaredError
 from keras.optimizers import Nadam
 from matplotlib import pyplot as plt
-from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.regression.linear_model import OLS
 
-from helper import normalization, price_impact, transaction_cost, reshape_cab, ex_post_return
+from hedge_fund_ml.utils.finance import ex_post_return, normalization, reshape_cab
 
 
 class Autoencoder(Model):
     def __init__(self, latent_dim):
         super(Autoencoder, self).__init__()
         self.latent_dim = latent_dim
-        self.encoder = Sequential([
-            Dense(latent_dim, input_dim=22, use_bias=False),
-            LeakyReLU(alpha=.2)
-        ])
-        self.decoder = Sequential([
-            Dense(22, input_dim=latent_dim, use_bias=False),
-            LeakyReLU(alpha=.2)
-        ])
+        self.encoder = Sequential(
+            [Dense(latent_dim, input_dim=22, use_bias=False), LeakyReLU(alpha=0.2)]
+        )
+        self.decoder = Sequential(
+            [Dense(22, input_dim=latent_dim, use_bias=False), LeakyReLU(alpha=0.2)]
+        )
 
     def call(self, x, **kwargs):
         encoded = self.encoder(x)
@@ -37,14 +38,14 @@ class Autoencoder(Model):
 
 class AE:
     def __init__(self, x_train, y_train, x_test, y_test, latent_dim):
-        '''
+        """
             data needs to be unscaled.
         :param x_train:
         :param y_train:
         :param x_test:
         :param y_test:
         :param latent_dim:
-        '''
+        """
         self.reshape_strat_weight_on_etf = None
         self.window = None
         self.strat_weight_on_etf = None
@@ -70,38 +71,32 @@ class AE:
         self._latent_dim = latent_dim
 
     def train(self, patience=5, verbose=2, plot=True):
-        '''
+        """
         AE training will only use self._x_train
 
         :return: plot
-        '''
+        """
         self.autoencoder = Autoencoder(self._latent_dim)
-        self.autoencoder.compile(
-            optimizer=Nadam(),
-            loss=MeanSquaredError()
-        )
+        self.autoencoder.compile(optimizer=Nadam(), loss=MeanSquaredError())
         self.history = self.autoencoder.fit(
             self._x_train,
             self._x_train,
             epochs=1000,
             verbose=verbose,
             batch_size=48,
-            validation_split=.25,
-            callbacks=[EarlyStopping(
-                monitor='val_loss',
-                patience=patience,
-                mode='auto'
-            )
-            ]
+            validation_split=0.25,
+            callbacks=[
+                EarlyStopping(monitor="val_loss", patience=patience, mode="auto")
+            ],
         )
         if plot:
             print(self.autoencoder.summary())
-            plt.plot(self.history.history['loss'])
-            plt.plot(self.history.history['val_loss'])
-            plt.title('Model Loss')
-            plt.ylabel('accuracy')
-            plt.xlabel('epoch')
-            plt.legend(['train', 'val'], loc='upper left')
+            plt.plot(self.history.history["loss"])
+            plt.plot(self.history.history["val_loss"])
+            plt.title("Model Loss")
+            plt.ylabel("accuracy")
+            plt.xlabel("epoch")
+            plt.legend(["train", "val"], loc="upper left")
             plt.show()
 
     def model_IS_r2(self):
@@ -130,11 +125,16 @@ class AE:
             seq.append(mean_squared_error(x_real, x_pred, squared=False))
         return seq
 
-    def ante(self, rf, hfd, window=24, ):
-        '''
+    def ante(
+        self,
+        rf,
+        hfd,
+        window=24,
+    ):
+        """
         calculate ex-ante and ex-post return
         :return: ex-ante, ex-post
-        '''
+        """
         assert isinstance(rf, pd.DataFrame)
         # extract main factor
         main_factor = self.autoencoder.encoder.predict(self._x_test, verbose=0)
@@ -147,7 +147,7 @@ class AE:
         normalization_factor = []
         for i in range(len(self._x_test) - window):
             X = main_factor[start:end]
-            Y = self._y_test[start: end]
+            Y = self._y_test[start:end]
             beta = OLS(Y, X).fit().params
             ae_ols_beta.append(beta)
             # still need normalization factor.
@@ -164,33 +164,38 @@ class AE:
             for idx, val in enumerate(main_factor[window + i] @ factor_weight_on_etf):
                 if val < 0:
                     leakyrelu_weight[idx] = 0.2
-            strat_weight = (ae_ols_beta[0].T @ factor_weight_on_etf * leakyrelu_weight).T * normalization_factor[0]
+            strat_weight = (
+                ae_ols_beta[0].T @ factor_weight_on_etf * leakyrelu_weight
+            ).T * normalization_factor[0]
             delta_weight.append(1 - np.sum(strat_weight, axis=0))
             strat_weight_on_etf.append(strat_weight)
 
-        '''
+        """
         we are using insample ols to predict next step weighting on etf.
         insample: 0-12, generate ols beta,
         predict: out-sample lambda = in-sample beta,
         predict_return: t=13, rf * (1-sum(lambda))+lambda * etf_return
-        therefore the last window in variable strat_weight_on_etf is invalid (no corresponding etf)
-        '''
+        therefore the last window in variable strat_weight_on_etf is invalid
+        (no corresponding etf)
+        """
         # remove last element of weight and pop
         strat_weight_on_etf.pop()
         delta_weight.pop()
         # OOS ETF is x_test, OOS hfd is y_test
 
-        self.OOS_etf = np.array(self._x_test.iloc[-len(strat_weight_on_etf):])
-        self.OOS_hfd = self._y_test.iloc[-len(strat_weight_on_etf):]
-        self.OOS_rf = np.array(rf.iloc[-len(strat_weight_on_etf):])
+        self.OOS_etf = np.array(self._x_test.iloc[-len(strat_weight_on_etf) :])
+        self.OOS_hfd = self._y_test.iloc[-len(strat_weight_on_etf) :]
+        self.OOS_rf = np.array(rf.iloc[-len(strat_weight_on_etf) :])
         # calculate ante return
         ae_ret_ante = []
         for idx, strat_weight in enumerate(strat_weight_on_etf):
-            ret_ante = delta_weight[idx] * self.OOS_rf[idx] + np.sum(self.OOS_etf[idx] * strat_weight.T, axis=1)
+            ret_ante = delta_weight[idx] * self.OOS_rf[idx] + np.sum(
+                self.OOS_etf[idx] * strat_weight.T, axis=1
+            )
             ae_ret_ante.append(ret_ante)
         ae_ret_ante = pd.DataFrame(ae_ret_ante)
         ae_ret_ante.columns = hfd.columns
-        ae_ret_ante.index = hfd.index[-len(ae_ret_ante):]
+        ae_ret_ante.index = hfd.index[-len(ae_ret_ante) :]
         # capture result
         self._ante = ae_ret_ante
         self.rf = rf
@@ -200,37 +205,49 @@ class AE:
         self.window = window
         return self._ante
 
-    def post(self,factor_etf_data):
+    def post(self, factor_etf_data):
         if self._ante is None:
-            raise Exception('please execute ante before turnover')
-        OOS_factor_etf = (factor_etf_data.iloc[-len(self.reshape_strat_weight_on_etf[0]) - self.window:])  # include the first window
-        self._post = ex_post_return(self._ante,self.window,self.reshape_strat_weight_on_etf,OOS_factor_etf)
+            raise Exception("please execute ante before turnover")
+        OOS_factor_etf = factor_etf_data.iloc[
+            -len(self.reshape_strat_weight_on_etf[0]) - self.window :
+        ]  # include the first window
+        self._post = ex_post_return(
+            self._ante, self.window, self.reshape_strat_weight_on_etf, OOS_factor_etf
+        )
         return self._post
 
     def turnover(self, hfd_fullname):
         if self._ante is None:
-            raise Exception('please execute ante before turnover')
+            raise Exception("please execute ante before turnover")
         turnover = np.zeros(len(self.hfd.columns))
         for i in range(len(self.strat_weight_on_etf) - 1):
-            turnover += np.sum(abs(self.strat_weight_on_etf[i] - self.strat_weight_on_etf[1 + i]), axis=0)
-        turnover /= len(self.strat_weight_on_etf)/12
+            turnover += np.sum(
+                abs(self.strat_weight_on_etf[i] - self.strat_weight_on_etf[1 + i]),
+                axis=0,
+            )
+        turnover /= len(self.strat_weight_on_etf) / 12
         turnover_df = []
         for i in range(len(turnover)):
             turnover_df.append([list(hfd_fullname.values())[i], turnover[i]])
-        turnover_df = pd.DataFrame(turnover_df, columns=['Real_AE', 'Turnover'])
-        turnover_df = turnover_df.set_index('Real_AE')
+        turnover_df = pd.DataFrame(turnover_df, columns=["Real_AE", "Turnover"])
+        turnover_df = turnover_df.set_index("Real_AE")
         # assign input
         self.hfd_fullname = hfd_fullname
         return turnover_df
 
-    def plot(self,hfd_fullname,title=None):
+    def plot(self, hfd_fullname, title=None):
         assert isinstance(title, str)
         fig, ax = plt.subplots(5, 3, figsize=(30, 20))
         row, col = 0, 0
         for idx, strat in enumerate(self._ante.columns):
             temp = pd.DataFrame(
-                [self._ante.iloc[:, idx].cumsum(), self._post.iloc[:, idx].cumsum(), self.OOS_hfd.iloc[:, idx].cumsum()],
-                index=['Ex-ante', 'Ex_post', 'Real']).T
+                [
+                    self._ante.iloc[:, idx].cumsum(),
+                    self._post.iloc[:, idx].cumsum(),
+                    self.OOS_hfd.iloc[:, idx].cumsum(),
+                ],
+                index=["Ex-ante", "Ex_post", "Real"],
+            ).T
             for i, name in enumerate(temp.columns):
                 ax[row][col].plot(temp.iloc[:, i], label=name)
                 ax[row][col].legend(loc="upper left")
