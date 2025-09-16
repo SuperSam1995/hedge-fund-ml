@@ -4,6 +4,7 @@ import random
 
 import numpy as np
 import pytest
+
 from hedge_fund_ml.utils.seeding import set_global_seed
 
 
