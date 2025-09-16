@@ -12,8 +12,8 @@
 
 ## Remediation highlights
 
-- Introduced a `pyproject.toml` based build with locked dependency sets via
-  `pip-compile` (`requirements.lock`, `requirements-dev.lock`).
+- Introduced a `pyproject.toml` based build with locked dependency sets via uv
+  (`uv.lock`).
 - Packaged reusable code inside `src/hedge_fund_ml`, adding typed finance
   utilities, deterministic seeding helpers and metadata logging.
 - Added a Pydantic-backed `DataRegistry` with a YAML catalogue and enforced

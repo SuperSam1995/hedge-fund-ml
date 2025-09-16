@@ -18,25 +18,27 @@ locks dependencies, and provides continuous integration friendly workflows.
 │   ├── telemetry/          # Run metadata helpers
 │   └── utils/              # Finance utilities and seeding helpers
 ├── tests/                  # Pytest suite guarding the helpers and registry
-├── requirements.lock       # Runtime lockfile (pip-compile managed)
-└── requirements-dev.lock   # Development lockfile with lint/test tooling
+└── uv.lock                 # Unified uv lockfile with runtime + dev groups
 ```
 
 ## Environment management
 
-1. Install dependencies from the compiled lockfile:
+1. Install dependencies with [uv](https://docs.astral.sh/uv/):
    ```bash
-   pip install -r requirements-dev.lock
+   uv sync --group dev
    ```
-2. Refresh the lockfiles after dependency updates:
+   This provisions the in-repo `.venv/` with both runtime and development tooling.
+2. Refresh the lockfile after dependency updates:
    ```bash
-   pip-compile --resolver=backtracking --output-file requirements.lock pyproject.toml
-   pip-compile --resolver=backtracking --extra dev --output-file requirements-dev.lock pyproject.toml
+   uv lock --upgrade-package <name>
    ```
+   Use `uv lock` (without arguments) for a full refresh. Commit the resulting `uv.lock` to
+   keep CI reproducible.
 3. Install deep-learning extras only when working with the autoencoder/GAN components:
    ```bash
-   pip install -e .[deep-learning]
+   uv sync --group dev --extra deep-learning
    ```
+   Subsequent tooling invocations can opt-in transiently via `uv run --extra deep-learning <command>`.
 
 The project targets Python 3.10+ and keeps notebooks data-only by consuming the
 `hedge_fund_ml` package.
