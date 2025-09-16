@@ -1,0 +1,42 @@
+registry:
+  root: data
+  config: configs/data_registry.yaml
+
+sources:
+  risk_free: fama_french_5
+  navror: navror_full
+  etf: etf_data
+
+processing:
+  start: 1994-04-30
+  end: 2022-04-30
+  frequency: M
+  drop_etf_symbols:
+    - RYLD
+    - SP_STRAD
+    - SMILE
+    - SPRO
+    - VVIX
+    - VXEEM
+    - JPMVXYEM
+    - CMBOEA
+    - CMBOEF
+    - CNDREF
+    - CNDREA
+    - BFLYEA
+    - BFLYEF
+    - CLLR
+    - SPRF
+    - XYLD
+    - PCRTEQTY
+    - PCRTTOTL
+
+outputs:
+  processed_dir: data/processed
+  hedge_funds: hfd.csv
+  factor_etf: factor_etf_data.csv
+  risk_free: rf.csv
+  hedge_fund_names: hfd_fullname.pkl
+  factor_etf_names: factor_etf_name.pkl
+  mirrors:
+    - cleaned_data
