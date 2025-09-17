@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import yaml
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
@@ -87,9 +89,16 @@ class SplitConfig(BaseModel):
         mode="before",
     )
     @classmethod
-    def _parse_timestamp(cls, value: object) -> pd.Timestamp | None:
+    def _parse_timestamp(
+        cls,
+        value: (
+            str | int | float | date | datetime | np.datetime64 | pd.Timestamp | None
+        ),
+    ) -> pd.Timestamp | None:
         if value is None:
             return None
+        if isinstance(value, pd.Timestamp):
+            return value
         return pd.Timestamp(value)
 
     @model_validator(mode="after")
@@ -104,9 +113,8 @@ class SplitConfig(BaseModel):
         return self
 
     def train_mask(self, index: pd.Index) -> pd.Series:
-        mask = index >= self.train_start
-        mask &= index <= self.train_end
-        return mask
+        index_series = index.to_series()
+        return index_series.between(self.train_start, self.train_end, inclusive="both")
 
     def test_mask(self, index: pd.Index) -> pd.Series:
         start = self.test_start
@@ -115,10 +123,11 @@ class SplitConfig(BaseModel):
             if future.empty:
                 raise ValueError("Unable to infer test_start from index")
             start = future.min()
-        mask = index >= start
+        index_series = index.to_series()
+        mask = index_series >= start
         if self.test_end is not None:
-            mask &= index <= self.test_end
-        return mask
+            mask &= index_series <= self.test_end
+        return mask.astype(bool)
 
 
 class FeatureRunConfig(BaseModel):
@@ -131,8 +140,12 @@ class FeatureRunConfig(BaseModel):
     data: DataPaths
     split: SplitConfig
     returns: ReturnsConfig
-    volatility: VolatilityScaleConfig = Field(default_factory=VolatilityScaleConfig)
-    hk_span: HKSpanConfig = Field(default_factory=HKSpanConfig)
+    volatility: VolatilityScaleConfig = Field(
+        default_factory=lambda: VolatilityScaleConfig.model_validate({})
+    )
+    hk_span: HKSpanConfig = Field(
+        default_factory=lambda: HKSpanConfig.model_validate({})
+    )
 
     model_config = {"extra": "forbid"}
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
+from typing import Dict, cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -115,13 +115,22 @@ def _select_series(frame: pd.DataFrame, series: str) -> pd.DataFrame:
     if isinstance(frame.columns, pd.MultiIndex):
         if series not in frame.columns.get_level_values(0):
             raise KeyError(f"Series '{series}' not found in panel")
-        return frame.xs(series, axis=1, level=0)
+        result = frame.xs(series, axis=1, level=0)
+        if isinstance(result, pd.Series):
+            name = result.name if result.name is not None else series
+            return result.to_frame(name=name)
+        return result
     raise ValueError("Expected MultiIndex columns with a top-level series label")
 
 
+def _to_float_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    numeric = cast(pd.DataFrame, frame.apply(pd.to_numeric, errors="raise"))
+    return numeric.astype(float)
+
+
 def build_cumulative_returns(panel: pd.DataFrame) -> pd.DataFrame:
-    target = _select_series(panel, "target")
-    replica = _select_series(panel, "hk_prediction")
+    target = _to_float_frame(_select_series(panel, "target"))
+    replica = _to_float_frame(_select_series(panel, "hk_prediction"))
     cumulative = pd.concat(
         {
             "target": (1 + target).cumprod() - 1,
@@ -139,9 +148,9 @@ def _compute_metrics(
     weights: pd.DataFrame,
     settings: EvaluationSettings,
 ) -> Dict[str, Dict[str, float]]:
-    target = _select_series(panel, "target")
-    replica = _select_series(panel, "hk_prediction")
-    residual = _select_series(panel, "hk_residual")
+    target = _to_float_frame(_select_series(panel, "target"))
+    replica = _to_float_frame(_select_series(panel, "hk_prediction"))
+    residual = _to_float_frame(_select_series(panel, "hk_residual"))
 
     metrics: Dict[str, Dict[str, float]] = {}
     for name, data in {
@@ -191,7 +200,10 @@ def _persist_figure(config: EvaluationConfig, cumulative: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
     for series in cumulative.columns.get_level_values(0).unique():
         data = cumulative.xs(series, axis=1, level=0)
-        data.mean(axis=1).plot(ax=ax, label=series.capitalize())
+        if isinstance(data, pd.Series):
+            data = data.to_frame(name=series)
+        mean_series = data.mean(axis=1)
+        mean_series.plot(ax=ax, label=series.capitalize())
     ax.set_title("Cumulative returns")
     ax.set_xlabel("Date")
     ax.set_ylabel("Cumulative return")
@@ -212,7 +224,7 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
         arrays = [list(level) for level in zip(*padded)]
         names = [f"level_{idx}" for idx in range(width)]
         weights.columns = pd.MultiIndex.from_arrays(arrays, names=names)
-    metrics_dict = _compute_metrics(panel, weights, config.settings)
+    metrics_dict = _compute_metrics(panel, weights.astype(float), config.settings)
     metrics_frame = metrics_table(metrics_dict)
     _persist_metrics(config, metrics_frame)
 
