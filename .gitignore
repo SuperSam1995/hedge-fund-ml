@@ -24,3 +24,20 @@ reports/final_report_*.html
 # Node
 node_modules/
 dist/
+# data & models (tracked elsewhere)
+data/**/*
+!data/README.md
+models/**/*
+!models/README.md
+
+# reports & temp
+reports/_tmp*/
+reports/**/*.html
+reports/**/*.png
+reports/**/*.svg
+
+# notebooks cache
+**/.ipynb_checkpoints/
+
+# misc
+.DS_Store
