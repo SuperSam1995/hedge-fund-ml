@@ -1,0 +1,26 @@
+seed: 42
+packages:
+  - numpy
+  - pandas
+  - scikit-learn
+  - tensorflow
+  - keras
+model:
+  latent_dim: 6
+  hidden_dims: [128, 64]
+  activation: relu
+  l2: 1.0e-5
+training:
+  epochs: 5
+  batch_size: 128
+  patience: 2
+  min_delta: 1.0e-5
+  learning_rate: 0.001
+  verbose: 0
+output:
+  root: models/ae
+data:
+  features_path: cleaned_data/factor_etf_data.csv
+  validation_fraction: 0.2
+  shuffle: false
+  dropna: true

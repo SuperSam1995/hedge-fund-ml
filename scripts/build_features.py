@@ -35,7 +35,10 @@ def _read_panel(path: Path | str) -> pd.DataFrame:
 def _flatten_columns(frame: pd.DataFrame) -> pd.DataFrame:
     if not isinstance(frame.columns, pd.MultiIndex):
         return frame
-    flattened = ["__".join(str(part) for part in column if part not in (None, "")) for column in frame.columns]
+    flattened = [
+        "__".join(str(part) for part in column if part not in (None, ""))
+        for column in frame.columns
+    ]
     result = frame.copy()
     result.columns = flattened
     return result
@@ -44,8 +47,12 @@ def _flatten_columns(frame: pd.DataFrame) -> pd.DataFrame:
 class DataPaths(BaseModel):
     factors: Path = Field(description="Input CSV containing factor / ETF returns.")
     targets: Path = Field(description="Input CSV containing hedge fund returns.")
-    output_features: Path = Field(description="Destination CSV for engineered features.")
-    output_model: Path = Field(description="Destination JSON for the HK span model coefficients.")
+    output_features: Path = Field(
+        description="Destination CSV for engineered features."
+    )
+    output_model: Path = Field(
+        description="Destination JSON for the HK span model coefficients."
+    )
     metadata: Path | None = Field(
         default=None,
         description="Optional location for run metadata (JSON).",
@@ -62,7 +69,9 @@ class SplitConfig(BaseModel):
 
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
-    @field_validator("train_start", "train_end", "test_start", "test_end", mode="before")
+    @field_validator(
+        "train_start", "train_end", "test_start", "test_end", mode="before"
+    )
     @classmethod
     def _parse_timestamp(cls, value: object) -> pd.Timestamp | None:
         if value is None:
@@ -100,7 +109,9 @@ class SplitConfig(BaseModel):
 
 class FeatureRunConfig(BaseModel):
     seed: int = 42
-    packages: list[str] = Field(default_factory=lambda: ["numpy", "pandas", "scikit-learn"])
+    packages: list[str] = Field(
+        default_factory=lambda: ["numpy", "pandas", "scikit-learn"]
+    )
     data: DataPaths
     split: SplitConfig
     returns: ReturnsConfig
@@ -176,8 +187,12 @@ def persist_artifacts(config: FeatureRunConfig, artifacts: FeatureArtifacts) -> 
             "run": metadata.to_dict(),
             "rows": {
                 "total": int(len(artifacts.dataset.features)),
-                "train": int(config.split.train_mask(artifacts.dataset.features.index).sum()),
-                "test": int(config.split.test_mask(artifacts.dataset.features.index).sum()),
+                "train": int(
+                    config.split.train_mask(artifacts.dataset.features.index).sum()
+                ),
+                "test": int(
+                    config.split.test_mask(artifacts.dataset.features.index).sum()
+                ),
             },
             "outputs": {
                 "features": str(output_path),
@@ -185,7 +200,9 @@ def persist_artifacts(config: FeatureRunConfig, artifacts: FeatureArtifacts) -> 
             },
         }
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
 
 def load_config(path: Path | None) -> FeatureRunConfig:
@@ -203,7 +220,9 @@ def load_config(path: Path | None) -> FeatureRunConfig:
 
 
 def main(argv: Iterable[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Build engineered features from ETF and hedge fund data")
+    parser = argparse.ArgumentParser(
+        description="Build engineered features from ETF and hedge fund data"
+    )
     parser.add_argument(
         "--config",
         type=Path,
