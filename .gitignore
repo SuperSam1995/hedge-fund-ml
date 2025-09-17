@@ -14,6 +14,9 @@ __pycache__/
 # Generated data artefacts
 data/interim/
 /models/
+reports/figures/
+reports/metrics/
+reports/metadata/
 
 # Node
 node_modules/
