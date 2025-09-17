@@ -344,9 +344,7 @@ def transform(
     with (run_dir / "scaler.pkl").open("rb") as handle:
         scaler: MinMaxScaler = pickle.load(handle)
     model = keras.models.load_model(run_dir / "model.keras")
-    encoder = keras.Model(
-        inputs=model.input, outputs=model.get_layer("latent").output
-    )
+    encoder = keras.Model(inputs=model.input, outputs=model.get_layer("latent").output)
     scaled = scaler.transform(frame.to_numpy(dtype=np.float32))
     latent = encoder.predict(scaled, verbose=0)
     columns = [f"latent_{idx}" for idx in range(latent.shape[1])]
