@@ -72,6 +72,34 @@ The seeding utility touches Python, NumPy, PyTorch (if installed), TensorFlow
 (if installed) and toggles deterministic CuDNN behaviour.  Metadata logging
 captures package versions together with the Git commit hash.
 
+## End-to-end pipeline (`make reproduce`)
+
+Run the full deterministic workflow — registry validation, model stubs,
+replication, evaluation and reporting — via:
+
+```bash
+make reproduce
+```
+
+The target shells out to `uv run --group dev --extra deep-learning` so that the
+optional TensorFlow/Keras dependencies required by the GAN/autoencoder shims
+are available. Expect the command to:
+
+1. Validate that all datasets declared in `configs/data_registry.yaml` exist
+   under `data/{raw,interim,processed}` and that raw files hash-match their
+   catalogued values.
+2. Honour the YAML run configuration at `configs/run.yaml` (or an override via
+   `--config`) for seeding and package metadata capture.
+3. Leave artefacts in deterministic locations:
+   - Run metadata JSONs inside `reports/metadata/` for each pipeline stage.
+   - Synthetic replication payload at `reports/replication.json`.
+   - Evaluation metrics snapshot at `reports/metrics.json`.
+   - Placeholder figure written to `reports/figures/replication_placeholder.png`.
+
+The run assumes immutable raw inputs in `data/raw/` (managed through the
+registry) and writes only to `data/interim/` or below `reports/` to keep raw
+data untouched.
+
 ## Reporting
 
 Matplotlib visualisations should be single-purpose figures with labelled axes
