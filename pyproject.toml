@@ -36,6 +36,9 @@ dev = [
   "pytest-cov>=4.1",
   "ruff>=0.1.8",
   "jupytext>=1.16",
+  "papermill>=2.6",
+  "nbconvert>=7.12",
+  "jupyter>=1.0",
 ]
 
 [tool.setuptools.packages.find]
