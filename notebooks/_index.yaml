@@ -1,5 +1,5 @@
 # Notebook migration index mapping interactive workbooks to package entry points.
-data_cleaning+benchmark.ipynb:
+eda_data_cleaning.ipynb:
   script: src/hedge_fund_ml/data/cleaning.py
   cli: null
   keep_for_eda: true
@@ -8,50 +8,9 @@ data_cleaning+benchmark.ipynb:
     - cleaned_data/factor_etf_data.csv
     - cleaned_data/hfd_fullname.pkl
     - cleaned_data/factor_etf_name.pkl
-autoencoder_v4.ipynb:
-  script: src/hedge_fund_ml/models/autoencoder.py
-  cli: "hedge-fund-ml train-ae"
-  keep_for_eda: false
-  outputs: []
-GAN/GAN.ipynb:
-  script: src/hedge_fund_ml/models/gan/vanilla.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/GAN{timestamp}.h5"
-GAN/WGAN.ipynb:
-  script: src/hedge_fund_ml/models/gan/wgan.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/WGAN{timestamp}.h5"
-GAN/WGAN_GP.ipynb:
-  script: src/hedge_fund_ml/models/gan/wgan_gp.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/GAN_GP{timestamp}.h5"
-GAN/MTSS_GAN.ipynb:
-  script: src/hedge_fund_ml/models/gan/mtss_gan.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/MTSS_GAN{timestamp}.h5"
-GAN/MTSS_WGAN.ipynb:
-  script: src/hedge_fund_ml/models/gan/mtss_wgan.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/MTSS_WGAN{timestamp}.h5"
-GAN/MTSS_WGAN_GP.ipynb:
-  script: src/hedge_fund_ml/models/gan/mtss_wgan_gp.py
-  cli: "hedge-fund-ml train-gan"
-  keep_for_eda: false
-  outputs:
-    - "trained_generator/MTSS_GAN_GP{timestamp}.h5"
-GAN/GAN_post_training.ipynb:
-  script: src/hedge_fund_ml/models/gan/evaluation.py
+final_report.ipynb:
+  script: null
   cli: null
-  keep_for_eda: true
+  keep_for_eda: false
   outputs:
-    - MTSS_WGANGP_generated.npy
+    - reports/final_report_YYYY-MM-DD.html

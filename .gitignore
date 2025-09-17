@@ -14,9 +14,12 @@ __pycache__/
 # Generated data artefacts
 data/interim/
 /models/
-reports/figures/
+reports/figures/*
+!reports/figures/.gitkeep
 reports/metrics/
 reports/metadata/
+reports/_tmp_*.ipynb
+reports/final_report_*.html
 
 # Node
 node_modules/

@@ -3,6 +3,7 @@
 UV ?= uv
 PYTHON := $(UV) run --group dev python
 PYTHON_DL := $(UV) run --group dev --extra deep-learning python
+REPORT_DATE := $(shell date +%Y-%m-%d)
 
 setup:
 	$(UV) sync --group dev
@@ -13,7 +14,7 @@ lint:
 	$(UV) run --group dev mypy src tests
 
 test:
-	$(UV) run --group dev pytest -q
+	$(UV) run --group dev --extra deep-learning pytest -q
 
 data:
 	$(PYTHON) scripts/data_prepare.py
@@ -34,7 +35,12 @@ eval:
 	$(PYTHON) -m scripts.eval --config configs/eval.yaml
 
 report:
-	$(PYTHON) -m hedge_fund_ml.cli report
+	$(UV) run --group dev papermill notebooks/final_report.ipynb reports/_tmp_$(REPORT_DATE).ipynb \
+	  -p metrics_path reports/metrics_latest.json \
+	  -p figures_dir reports/figures
+	$(UV) run --group dev jupyter nbconvert --to html --no-input reports/_tmp_$(REPORT_DATE).ipynb \
+	  --output-dir reports \
+	  --output final_report_$(REPORT_DATE).html
 
 reproduce:
 	$(PYTHON_DL) -m hedge_fund_ml.cli reproduce
