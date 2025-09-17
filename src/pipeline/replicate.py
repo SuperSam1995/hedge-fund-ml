@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -15,7 +14,12 @@ from pydantic import BaseModel, Field, ValidationError
 from features import HKSpanModel
 from hedge_fund_ml import collect_run_metadata
 
-from .features import FeatureArtifacts, FeatureRunConfig, build_features, persist_artifacts
+from .features import (
+    FeatureArtifacts,
+    FeatureRunConfig,
+    build_features,
+    persist_artifacts,
+)
 
 _DEFAULT_PACKAGES = ["numpy", "pandas", "scikit-learn", "statsmodels"]
 
@@ -88,7 +92,7 @@ def _expand_weights(model: HKSpanModel, index: pd.Index) -> pd.DataFrame:
     if model.state is None:  # pragma: no cover - defensive
         raise RuntimeError("HKSpanModel must be fitted before extracting weights")
     coefficients = model.state.coefficients
-    expanded: Dict[str, pd.DataFrame] = {}
+    expanded: dict[str, pd.DataFrame] = {}
     for target in coefficients.columns:
         panel = pd.DataFrame(
             np.tile(coefficients[target].to_numpy(), (len(index), 1)),
@@ -147,7 +151,9 @@ def run_replication(config: ReplicateConfig) -> ReplicationResult:
             },
         }
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
     return ReplicationResult(
         feature_frame=config.features.data.output_features,

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 import yaml
@@ -80,7 +79,13 @@ class SplitConfig(BaseModel):
 
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
-    @field_validator("train_start", "train_end", "test_start", "test_end", mode="before")
+    @field_validator(
+        "train_start",
+        "train_end",
+        "test_start",
+        "test_end",
+        mode="before",
+    )
     @classmethod
     def _parse_timestamp(cls, value: object) -> pd.Timestamp | None:
         if value is None:
@@ -217,8 +222,12 @@ def persist_artifacts(config: FeatureRunConfig, artifacts: FeatureArtifacts) -> 
             "run": metadata.to_dict(),
             "rows": {
                 "total": int(len(artifacts.dataset.features)),
-                "train": int(config.split.train_mask(artifacts.dataset.features.index).sum()),
-                "test": int(config.split.test_mask(artifacts.dataset.features.index).sum()),
+                "train": int(
+                    config.split.train_mask(artifacts.dataset.features.index).sum()
+                ),
+                "test": int(
+                    config.split.test_mask(artifacts.dataset.features.index).sum()
+                ),
             },
             "outputs": {
                 "features": str(output_path),

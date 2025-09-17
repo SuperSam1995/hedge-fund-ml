@@ -32,7 +32,10 @@ def _dropna(data: pd.Series) -> pd.Series:
     return cleaned
 
 
-def annualised_return(returns: pd.Series | pd.DataFrame, periods_per_year: int) -> float:
+def annualised_return(
+    returns: pd.Series | pd.DataFrame,
+    periods_per_year: int,
+) -> float:
     series = _dropna(_ensure_series(returns))
     compounded = (1 + series).prod()
     n_periods = len(series)
@@ -41,7 +44,10 @@ def annualised_return(returns: pd.Series | pd.DataFrame, periods_per_year: int) 
     return compounded ** (periods_per_year / n_periods) - 1
 
 
-def annualised_volatility(returns: pd.Series | pd.DataFrame, periods_per_year: int) -> float:
+def annualised_volatility(
+    returns: pd.Series | pd.DataFrame,
+    periods_per_year: int,
+) -> float:
     series = _dropna(_ensure_series(returns))
     return float(series.std(ddof=0) * np.sqrt(periods_per_year))
 
@@ -56,7 +62,9 @@ def sharpe_ratio(
     vol = excess.std(ddof=0)
     if vol <= np.finfo(float).eps:
         return np.nan
-    return float(excess.mean() * periods_per_year / (vol * np.sqrt(periods_per_year)))
+    numerator = excess.mean() * periods_per_year
+    denominator = vol * np.sqrt(periods_per_year)
+    return float(numerator / denominator)
 
 
 def sortino_ratio(
@@ -71,7 +79,9 @@ def sortino_ratio(
     downside_std = downside.std(ddof=0)
     if downside_std <= np.finfo(float).eps:
         return np.nan
-    return float(excess.mean() * periods_per_year / (abs(downside_std) * np.sqrt(periods_per_year)))
+    numerator = excess.mean() * periods_per_year
+    denominator = abs(downside_std) * np.sqrt(periods_per_year)
+    return float(numerator / denominator)
 
 
 def max_drawdown(returns: pd.Series | pd.DataFrame) -> float:
