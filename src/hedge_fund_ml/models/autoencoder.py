@@ -304,10 +304,12 @@ def fit(
         return_dict=True,
     )
     val_eval = model.evaluate(val_scaled, val_scaled, verbose=0, return_dict=True)
-    metrics = pd.DataFrame([
-        {"split": "train", **train_eval},
-        {"split": "val", **val_eval},
-    ])
+    metrics = pd.DataFrame(
+        [
+            {"split": "train", **train_eval},
+            {"split": "val", **val_eval},
+        ]
+    )
     _write_metrics(metrics, run_dir / "metrics.csv")
 
     return AutoencoderArtifacts(
