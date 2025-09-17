@@ -1,260 +1,363 @@
-"""
-encapsulated class AE
+"""Autoencoder model utilities extracted from research notebooks.
+
+This module provides a small, configuration-driven autoencoder training stack
+that mirrors the logic originally prototyped in ``03_autoencoder.ipynb``.
 """
 
 from __future__ import annotations
 
+import json
+import os
+import pickle
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from keras import Model, Sequential
+import yaml
+
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+
+try:  # pragma: no cover - optional runtime guard for GPU-free environments
+    import tensorflow as _tf
+
+    _tf.config.set_visible_devices([], "GPU")
+except (ImportError, RuntimeError, ValueError):
+    pass
+
+from keras import Input, Model
 from keras.callbacks import EarlyStopping
-from keras.layers import Dense, LeakyReLU
+from keras.layers import Dense
 from keras.losses import MeanSquaredError
-from keras.optimizers import Nadam
-from matplotlib import pyplot as plt
-from sklearn.metrics import mean_squared_error, r2_score
+from keras.models import load_model
+from keras.optimizers import Adam
+from keras.regularizers import L2, Regularizer
+from pydantic import BaseModel, Field
 from sklearn.preprocessing import MinMaxScaler
-from statsmodels.regression.linear_model import OLS
 
-from hedge_fund_ml.utils.finance import ex_post_return, normalization, reshape_cab
+from hedge_fund_ml import collect_run_metadata, set_global_seed
 
-
-class Autoencoder(Model):
-    def __init__(self, latent_dim):
-        super(Autoencoder, self).__init__()
-        self.latent_dim = latent_dim
-        self.encoder = Sequential(
-            [Dense(latent_dim, input_dim=22, use_bias=False), LeakyReLU(alpha=0.2)]
-        )
-        self.decoder = Sequential(
-            [Dense(22, input_dim=latent_dim, use_bias=False), LeakyReLU(alpha=0.2)]
-        )
-
-    def call(self, x, **kwargs):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        return decoded
+_DEFAULT_PACKAGES: list[str] = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "tensorflow",
+    "keras",
+]
 
 
-class AE:
-    def __init__(self, x_train, y_train, x_test, y_test, latent_dim):
-        """
-            data needs to be unscaled.
-        :param x_train:
-        :param y_train:
-        :param x_test:
-        :param y_test:
-        :param latent_dim:
-        """
-        self.reshape_strat_weight_on_etf = None
-        self.window = None
-        self.strat_weight_on_etf = None
-        self.hfd = None
-        self.rf = None
-        self.hfd_fullname = None
-        self._ante = None
-        self.OOS_hfd = None
-        self.OOS_etf = None
-        self.OOS_rf = None
-        self.test_scale = None
-        assert len(x_train) == len(y_train) and len(y_test) == len(x_test)
-        self.history = None
-        self.autoencoder = None
-        self.train_scale = MinMaxScaler()
-        # self.test_scale = MinMaxScaler()
+def _ensure_frame(data: pd.DataFrame | np.ndarray) -> pd.DataFrame:
+    if isinstance(data, pd.DataFrame):
+        return data.copy()
+    array = np.asarray(data)
+    if array.ndim != 2:
+        raise ValueError("Expected 2D array for autoencoder training data")
+    columns = [f"feature_{idx}" for idx in range(array.shape[1])]
+    return pd.DataFrame(array, columns=columns)
 
-        self._x_train = self.train_scale.fit_transform(x_train)
-        # self._x_test = self.test_scale.fit_transform(x_test)
-        self._x_test = x_test
-        self._y_train = y_train
-        self._y_test = y_test
-        self._latent_dim = latent_dim
 
-    def train(self, patience=5, verbose=2, plot=True):
-        """
-        AE training will only use self._x_train
+class AutoencoderModelConfig(BaseModel):
+    """Architecture hyper-parameters for the autoencoder."""
 
-        :return: plot
-        """
-        self.autoencoder = Autoencoder(self._latent_dim)
-        self.autoencoder.compile(optimizer=Nadam(), loss=MeanSquaredError())
-        self.history = self.autoencoder.fit(
-            self._x_train,
-            self._x_train,
-            epochs=1000,
-            verbose=verbose,
-            batch_size=48,
-            validation_split=0.25,
-            callbacks=[
-                EarlyStopping(monitor="val_loss", patience=patience, mode="auto")
-            ],
-        )
-        if plot:
-            print(self.autoencoder.summary())
-            plt.plot(self.history.history["loss"])
-            plt.plot(self.history.history["val_loss"])
-            plt.title("Model Loss")
-            plt.ylabel("accuracy")
-            plt.xlabel("epoch")
-            plt.legend(["train", "val"], loc="upper left")
-            plt.show()
+    latent_dim: int = Field(default=8, gt=0)
+    hidden_dims: list[int] = Field(default_factory=lambda: [64, 32])
+    activation: str = "relu"
+    latent_activation: str | None = None
+    output_activation: str | None = None
+    l2: float = Field(default=0.0, ge=0.0)
+    input_dim: int | None = Field(default=None, gt=0)
 
-    def model_IS_r2(self):
-        x_pred = self.autoencoder.predict(self._x_train, verbose=0)
-        return r2_score(self._x_train, x_pred)
+    model_config = {"extra": "forbid", "validate_assignment": True}
 
-    def model_IS_RMSE(self):
-        x_pred = self.autoencoder.predict(self._x_train, verbose=0)
-        return mean_squared_error(self._x_train, x_pred, squared=False)
-
-    def model_OOS_r2(self):
-        seq = []
-        for i in range(2, len(self._x_test)):
-            scaler = MinMaxScaler()
-            x_real = scaler.fit_transform(self._x_test[:i])
-            x_pred = self.autoencoder.predict(x_real, verbose=0)
-            seq.append(r2_score(x_real, x_pred))
-        return seq
-
-    def model_OOS_RMSE(self):
-        seq = []
-        for i in range(2, len(self._x_test)):
-            scaler = MinMaxScaler()
-            x_real = scaler.fit_transform(self._x_test[:i])
-            x_pred = self.autoencoder.predict(x_real, verbose=0)
-            seq.append(mean_squared_error(x_real, x_pred, squared=False))
-        return seq
-
-    def ante(
-        self,
-        rf,
-        hfd,
-        window=24,
-    ):
-        """
-        calculate ex-ante and ex-post return
-        :return: ex-ante, ex-post
-        """
-        assert isinstance(rf, pd.DataFrame)
-        # extract main factor
-        main_factor = self.autoencoder.encoder.predict(self._x_test, verbose=0)
-        # OLS beta calculation
-
-        # rolling window OLS window=24, consistent with the benchmark
-        window = window
-        start, end = 0, window
-        ae_ols_beta = []
-        normalization_factor = []
-        for i in range(len(self._x_test) - window):
-            X = main_factor[start:end]
-            Y = self._y_test[start:end]
-            beta = OLS(Y, X).fit().params
-            ae_ols_beta.append(beta)
-            # still need normalization factor.
-            normalization_factor.append(normalization(Y, X, beta, window))
-            start += 1
-            end += 1
-
-        # extract real weights on ETF
-        factor_weight_on_etf = self.autoencoder.decoder.get_weights()[0]
-        strat_weight_on_etf = []
-        delta_weight = []
-        for i in range(len(ae_ols_beta)):
-            leakyrelu_weight = np.ones(factor_weight_on_etf.shape[1])
-            for idx, val in enumerate(main_factor[window + i] @ factor_weight_on_etf):
-                if val < 0:
-                    leakyrelu_weight[idx] = 0.2
-            strat_weight = (
-                ae_ols_beta[0].T @ factor_weight_on_etf * leakyrelu_weight
-            ).T * normalization_factor[0]
-            delta_weight.append(1 - np.sum(strat_weight, axis=0))
-            strat_weight_on_etf.append(strat_weight)
-
-        """
-        we are using insample ols to predict next step weighting on etf.
-        insample: 0-12, generate ols beta,
-        predict: out-sample lambda = in-sample beta,
-        predict_return: t=13, rf * (1-sum(lambda))+lambda * etf_return
-        therefore the last window in variable strat_weight_on_etf is invalid
-        (no corresponding etf)
-        """
-        # remove last element of weight and pop
-        strat_weight_on_etf.pop()
-        delta_weight.pop()
-        # OOS ETF is x_test, OOS hfd is y_test
-
-        self.OOS_etf = np.array(self._x_test.iloc[-len(strat_weight_on_etf) :])
-        self.OOS_hfd = self._y_test.iloc[-len(strat_weight_on_etf) :]
-        self.OOS_rf = np.array(rf.iloc[-len(strat_weight_on_etf) :])
-        # calculate ante return
-        ae_ret_ante = []
-        for idx, strat_weight in enumerate(strat_weight_on_etf):
-            ret_ante = delta_weight[idx] * self.OOS_rf[idx] + np.sum(
-                self.OOS_etf[idx] * strat_weight.T, axis=1
+    def with_input_dim(self, dimension: int) -> "AutoencoderModelConfig":
+        if dimension <= 0:
+            raise ValueError("input dimension must be positive")
+        if self.input_dim is not None and self.input_dim != dimension:
+            raise ValueError(
+                "Configured input_dim does not match training data dimension"
             )
-            ae_ret_ante.append(ret_ante)
-        ae_ret_ante = pd.DataFrame(ae_ret_ante)
-        ae_ret_ante.columns = hfd.columns
-        ae_ret_ante.index = hfd.index[-len(ae_ret_ante) :]
-        # capture result
-        self._ante = ae_ret_ante
-        self.rf = rf
-        self.hfd = hfd
-        self.strat_weight_on_etf = strat_weight_on_etf
-        self.reshape_strat_weight_on_etf = reshape_cab(strat_weight_on_etf)
-        self.window = window
-        return self._ante
+        return self.model_copy(update={"input_dim": dimension})
 
-    def post(self, factor_etf_data):
-        if self._ante is None:
-            raise Exception("please execute ante before turnover")
-        OOS_factor_etf = factor_etf_data.iloc[
-            -len(self.reshape_strat_weight_on_etf[0]) - self.window :
-        ]  # include the first window
-        self._post = ex_post_return(
-            self._ante, self.window, self.reshape_strat_weight_on_etf, OOS_factor_etf
+
+class AutoencoderTrainingConfig(BaseModel):
+    """Training loop configuration."""
+
+    epochs: int = Field(default=5, gt=0)
+    batch_size: int = Field(default=64, gt=0)
+    patience: int = Field(default=2, gt=0)
+    min_delta: float = Field(default=0.0, ge=0.0)
+    learning_rate: float = Field(default=1e-3, gt=0.0)
+    verbose: int = Field(default=1, ge=0)
+
+    model_config = {"extra": "forbid"}
+
+
+class AutoencoderOutputConfig(BaseModel):
+    """Artefact persistence settings."""
+
+    root: Path = Field(default=Path("models/ae"))
+    run_path: Path | None = None
+
+    model_config = {"extra": "forbid"}
+
+    def prepare_run_dir(self) -> Path:
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        destination = self.root / timestamp
+        destination.mkdir(parents=True, exist_ok=False)
+        return destination
+
+    def resolve_run_path(self) -> Path:
+        if self.run_path is not None:
+            return self.run_path
+        if not self.root.exists():
+            raise FileNotFoundError(f"No autoencoder artefacts found in {self.root}")
+        candidates = sorted(path for path in self.root.iterdir() if path.is_dir())
+        if not candidates:
+            raise FileNotFoundError(f"No autoencoder artefacts found in {self.root}")
+        return candidates[-1]
+
+
+class AutoencoderDataConfig(BaseModel):
+    """Dataset configuration for running the autoencoder pipeline."""
+
+    features_path: Path
+    validation_fraction: float = Field(default=0.2, ge=0.0, lt=1.0)
+    shuffle: bool = False
+    dropna: bool = True
+
+    model_config = {"extra": "forbid"}
+
+
+class AutoencoderConfig(BaseModel):
+    """Top-level configuration consumed by the training pipeline."""
+
+    seed: int = 42
+    packages: list[str] = Field(default_factory=lambda: list(_DEFAULT_PACKAGES))
+    model: AutoencoderModelConfig = Field(default_factory=AutoencoderModelConfig)
+    training: AutoencoderTrainingConfig = Field(
+        default_factory=AutoencoderTrainingConfig
+    )
+    output: AutoencoderOutputConfig = Field(default_factory=AutoencoderOutputConfig)
+    data: AutoencoderDataConfig | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @classmethod
+    def from_yaml(cls, path: Path | str) -> "AutoencoderConfig":
+        payload = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+        return cls.model_validate(payload)
+
+
+@dataclass(slots=True)
+class AutoencoderArtifacts:
+    """Bundle of in-memory handles and artefact locations."""
+
+    model: Model
+    scaler: MinMaxScaler
+    history: pd.DataFrame
+    metrics: pd.DataFrame
+    run_dir: Path
+
+
+def _build_regularizer(value: float) -> Regularizer | None:
+    if value == 0.0:
+        return None
+    return L2(value)
+
+
+def build_model(cfg: AutoencoderConfig) -> Model:
+    """Instantiate and compile an autoencoder according to ``cfg``."""
+
+    model_cfg = cfg.model
+    if model_cfg.input_dim is None:
+        raise ValueError("model.input_dim must be specified before building")
+
+    regularizer = _build_regularizer(model_cfg.l2)
+    inputs = Input(shape=(model_cfg.input_dim,), name="features")
+    x = inputs
+    for index, units in enumerate(model_cfg.hidden_dims):
+        x = Dense(
+            units,
+            activation=model_cfg.activation,
+            kernel_regularizer=regularizer,
+            name=f"encoder_{index}",
+        )(x)
+    latent = Dense(
+        model_cfg.latent_dim,
+        activation=model_cfg.latent_activation,
+        kernel_regularizer=regularizer,
+        name="latent",
+    )(x)
+    x = latent
+    for index, units in enumerate(reversed(model_cfg.hidden_dims)):
+        x = Dense(
+            units,
+            activation=model_cfg.activation,
+            kernel_regularizer=regularizer,
+            name=f"decoder_{index}",
+        )(x)
+    outputs = Dense(
+        model_cfg.input_dim,
+        activation=model_cfg.output_activation,
+        kernel_regularizer=regularizer,
+        name="reconstruction",
+    )(x)
+    autoencoder = Model(inputs=inputs, outputs=outputs, name="autoencoder")
+    optimizer = Adam(learning_rate=cfg.training.learning_rate)
+    autoencoder.compile(
+        optimizer=optimizer,
+        loss=MeanSquaredError(name="reconstruction_loss"),
+        metrics=[MeanSquaredError(name="mse")],
+    )
+    return autoencoder
+
+
+def _prepare_frames(
+    X_train: pd.DataFrame | np.ndarray,
+    X_val: pd.DataFrame | np.ndarray,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    train_frame = _ensure_frame(X_train)
+    val_frame = _ensure_frame(X_val)
+    missing = set(train_frame.columns) - set(val_frame.columns)
+    extra = set(val_frame.columns) - set(train_frame.columns)
+    if missing or extra:
+        raise ValueError(
+            "Training and validation data must contain the same feature columns"
         )
-        return self._post
+    val_frame = val_frame.loc[:, train_frame.columns]
+    return train_frame, val_frame
 
-    def turnover(self, hfd_fullname):
-        if self._ante is None:
-            raise Exception("please execute ante before turnover")
-        turnover = np.zeros(len(self.hfd.columns))
-        for i in range(len(self.strat_weight_on_etf) - 1):
-            turnover += np.sum(
-                abs(self.strat_weight_on_etf[i] - self.strat_weight_on_etf[1 + i]),
-                axis=0,
-            )
-        turnover /= len(self.strat_weight_on_etf) / 12
-        turnover_df = []
-        for i in range(len(turnover)):
-            turnover_df.append([list(hfd_fullname.values())[i], turnover[i]])
-        turnover_df = pd.DataFrame(turnover_df, columns=["Real_AE", "Turnover"])
-        turnover_df = turnover_df.set_index("Real_AE")
-        # assign input
-        self.hfd_fullname = hfd_fullname
-        return turnover_df
 
-    def plot(self, hfd_fullname, title=None):
-        assert isinstance(title, str)
-        fig, ax = plt.subplots(5, 3, figsize=(30, 20))
-        row, col = 0, 0
-        for idx, strat in enumerate(self._ante.columns):
-            temp = pd.DataFrame(
-                [
-                    self._ante.iloc[:, idx].cumsum(),
-                    self._post.iloc[:, idx].cumsum(),
-                    self.OOS_hfd.iloc[:, idx].cumsum(),
-                ],
-                index=["Ex-ante", "Ex_post", "Real"],
-            ).T
-            for i, name in enumerate(temp.columns):
-                ax[row][col].plot(temp.iloc[:, i], label=name)
-                ax[row][col].legend(loc="upper left")
-            ax[row][col].set_title(hfd_fullname[strat])
-            col += 1
-            if col % 3 == 0:
-                row += 1
-                col = 0
-        plt.suptitle(title, y=0.93, fontsize=24)
-        plt.show()
+def _write_history(history: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    history.to_csv(path, index_label="epoch")
+
+
+def _write_metrics(metrics: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metrics.to_csv(path, index=False)
+
+
+def fit(
+    X_train: pd.DataFrame | np.ndarray,
+    X_val: pd.DataFrame | np.ndarray,
+    cfg: AutoencoderConfig,
+) -> AutoencoderArtifacts:
+    """Train the autoencoder and persist artefacts."""
+
+    set_global_seed(cfg.seed)
+    train_frame, val_frame = _prepare_frames(X_train, X_val)
+
+    cfg = cfg.model_copy(
+        update={
+            "model": cfg.model.with_input_dim(train_frame.shape[1]),
+        }
+    )
+    scaler = MinMaxScaler()
+    train_scaled = scaler.fit_transform(train_frame.to_numpy(dtype=np.float32))
+    val_scaled = scaler.transform(val_frame.to_numpy(dtype=np.float32))
+
+    model = build_model(cfg)
+    callbacks = [
+        EarlyStopping(
+            monitor="val_loss",
+            patience=cfg.training.patience,
+            min_delta=cfg.training.min_delta,
+            restore_best_weights=True,
+        )
+    ]
+    history_obj = model.fit(
+        train_scaled,
+        train_scaled,
+        epochs=cfg.training.epochs,
+        batch_size=cfg.training.batch_size,
+        validation_data=(val_scaled, val_scaled),
+        verbose=cfg.training.verbose,
+        shuffle=True,
+        callbacks=callbacks,
+    )
+    history = pd.DataFrame(history_obj.history)
+
+    run_dir = cfg.output.prepare_run_dir()
+    model.save(run_dir / "model.keras")
+    with (run_dir / "scaler.pkl").open("wb") as handle:
+        pickle.dump(scaler, handle)
+    (run_dir / "config.yaml").write_text(
+        yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=False),
+        encoding="utf-8",
+    )
+    (run_dir / "columns.json").write_text(
+        json.dumps({"columns": list(train_frame.columns)}),
+        encoding="utf-8",
+    )
+    metadata = collect_run_metadata(seed=cfg.seed, packages=cfg.packages)
+    metadata.write_json(run_dir / "metadata.json")
+
+    _write_history(history, run_dir / "history.csv")
+
+    train_eval = model.evaluate(
+        train_scaled,
+        train_scaled,
+        verbose=0,
+        return_dict=True,
+    )
+    val_eval = model.evaluate(val_scaled, val_scaled, verbose=0, return_dict=True)
+    metrics = pd.DataFrame([
+        {"split": "train", **train_eval},
+        {"split": "val", **val_eval},
+    ])
+    _write_metrics(metrics, run_dir / "metrics.csv")
+
+    return AutoencoderArtifacts(
+        model=model,
+        scaler=scaler,
+        history=history,
+        metrics=metrics,
+        run_dir=run_dir,
+    )
+
+
+def transform(
+    X: pd.DataFrame | np.ndarray,
+    cfg: AutoencoderConfig,
+) -> pd.DataFrame:
+    """Project ``X`` into the learned latent space using saved artefacts."""
+
+    run_dir = cfg.output.resolve_run_path()
+    columns_path = run_dir / "columns.json"
+    if not columns_path.exists():
+        raise FileNotFoundError(f"Missing column metadata at {columns_path}")
+    columns_payload = json.loads(columns_path.read_text(encoding="utf-8"))
+    expected_columns = list(columns_payload.get("columns", []))
+    if not expected_columns:
+        raise ValueError("Saved autoencoder columns metadata is empty")
+
+    frame = _ensure_frame(X)
+    missing = set(expected_columns) - set(frame.columns)
+    if missing:
+        raise ValueError(f"Input data missing columns: {sorted(missing)}")
+    frame = frame.loc[:, expected_columns]
+
+    with (run_dir / "scaler.pkl").open("rb") as handle:
+        scaler: MinMaxScaler = pickle.load(handle)
+    model = load_model(run_dir / "model.keras")
+    encoder = Model(inputs=model.input, outputs=model.get_layer("latent").output)
+    scaled = scaler.transform(frame.to_numpy(dtype=np.float32))
+    latent = encoder.predict(scaled, verbose=0)
+    columns = [f"latent_{idx}" for idx in range(latent.shape[1])]
+    return pd.DataFrame(latent, index=frame.index, columns=columns)
+
+
+__all__ = [
+    "AutoencoderArtifacts",
+    "AutoencoderConfig",
+    "AutoencoderDataConfig",
+    "AutoencoderModelConfig",
+    "AutoencoderOutputConfig",
+    "AutoencoderTrainingConfig",
+    "build_model",
+    "fit",
+    "transform",
+]
