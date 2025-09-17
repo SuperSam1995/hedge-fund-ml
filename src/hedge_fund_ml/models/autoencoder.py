@@ -22,18 +22,17 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 try:  # pragma: no cover - optional runtime guard for GPU-free environments
     import tensorflow as _tf
+    from tensorflow import keras
+except ImportError as exc:  # pragma: no cover - env dependent
+    raise ImportError(
+        "TensorFlow (tf.keras) is required for the autoencoder module"
+    ) from exc
 
+try:  # pragma: no cover - GPU-less CI
     _tf.config.set_visible_devices([], "GPU")
-except (ImportError, RuntimeError, ValueError):
+except (RuntimeError, ValueError):  # pragma: no cover - best effort only
     pass
 
-from keras import Input, Model
-from keras.callbacks import EarlyStopping
-from keras.layers import Dense
-from keras.losses import MeanSquaredError
-from keras.models import load_model
-from keras.optimizers import Adam
-from keras.regularizers import L2, Regularizer
 from pydantic import BaseModel, Field
 from sklearn.preprocessing import MinMaxScaler
 
@@ -154,20 +153,20 @@ class AutoencoderConfig(BaseModel):
 class AutoencoderArtifacts:
     """Bundle of in-memory handles and artefact locations."""
 
-    model: Model
+    model: keras.Model
     scaler: MinMaxScaler
     history: pd.DataFrame
     metrics: pd.DataFrame
     run_dir: Path
 
 
-def _build_regularizer(value: float) -> Regularizer | None:
+def _build_regularizer(value: float) -> keras.regularizers.Regularizer | None:
     if value == 0.0:
         return None
-    return L2(value)
+    return keras.regularizers.L2(value)
 
 
-def build_model(cfg: AutoencoderConfig) -> Model:
+def build_model(cfg: AutoencoderConfig) -> keras.Model:
     """Instantiate and compile an autoencoder according to ``cfg``."""
 
     model_cfg = cfg.model
@@ -175,16 +174,16 @@ def build_model(cfg: AutoencoderConfig) -> Model:
         raise ValueError("model.input_dim must be specified before building")
 
     regularizer = _build_regularizer(model_cfg.l2)
-    inputs = Input(shape=(model_cfg.input_dim,), name="features")
+    inputs = keras.Input(shape=(model_cfg.input_dim,), name="features")
     x = inputs
     for index, units in enumerate(model_cfg.hidden_dims):
-        x = Dense(
+        x = keras.layers.Dense(
             units,
             activation=model_cfg.activation,
             kernel_regularizer=regularizer,
             name=f"encoder_{index}",
         )(x)
-    latent = Dense(
+    latent = keras.layers.Dense(
         model_cfg.latent_dim,
         activation=model_cfg.latent_activation,
         kernel_regularizer=regularizer,
@@ -192,24 +191,24 @@ def build_model(cfg: AutoencoderConfig) -> Model:
     )(x)
     x = latent
     for index, units in enumerate(reversed(model_cfg.hidden_dims)):
-        x = Dense(
+        x = keras.layers.Dense(
             units,
             activation=model_cfg.activation,
             kernel_regularizer=regularizer,
             name=f"decoder_{index}",
         )(x)
-    outputs = Dense(
+    outputs = keras.layers.Dense(
         model_cfg.input_dim,
         activation=model_cfg.output_activation,
         kernel_regularizer=regularizer,
         name="reconstruction",
     )(x)
-    autoencoder = Model(inputs=inputs, outputs=outputs, name="autoencoder")
-    optimizer = Adam(learning_rate=cfg.training.learning_rate)
+    autoencoder = keras.Model(inputs=inputs, outputs=outputs, name="autoencoder")
+    optimizer = keras.optimizers.Adam(learning_rate=cfg.training.learning_rate)
     autoencoder.compile(
         optimizer=optimizer,
-        loss=MeanSquaredError(name="reconstruction_loss"),
-        metrics=[MeanSquaredError(name="mse")],
+        loss=keras.losses.MeanSquaredError(name="reconstruction_loss"),
+        metrics=[keras.losses.MeanSquaredError(name="mse")],
     )
     return autoencoder
 
@@ -261,7 +260,7 @@ def fit(
 
     model = build_model(cfg)
     callbacks = [
-        EarlyStopping(
+        keras.callbacks.EarlyStopping(
             monitor="val_loss",
             patience=cfg.training.patience,
             min_delta=cfg.training.min_delta,
@@ -344,8 +343,10 @@ def transform(
 
     with (run_dir / "scaler.pkl").open("rb") as handle:
         scaler: MinMaxScaler = pickle.load(handle)
-    model = load_model(run_dir / "model.keras")
-    encoder = Model(inputs=model.input, outputs=model.get_layer("latent").output)
+    model = keras.models.load_model(run_dir / "model.keras")
+    encoder = keras.Model(
+        inputs=model.input, outputs=model.get_layer("latent").output
+    )
     scaled = scaler.transform(frame.to_numpy(dtype=np.float32))
     latent = encoder.predict(scaled, verbose=0)
     columns = [f"latent_{idx}" for idx in range(latent.shape[1])]
