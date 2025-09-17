@@ -1,0 +1,37 @@
+seed: 42
+packages:
+  - numpy
+  - pandas
+  - scikit-learn
+  - tensorflow
+  - keras
+model:
+  latent_dim: 16
+  generator_units: [64, 64]
+  critic_units: [64, 64]
+  activation: relu
+  output_activation: tanh
+  critic_slope: 0.2
+training:
+  epochs: 3
+  batch_size: 32
+  n_critic: 2
+  clip_value: 0.01
+  learning_rate: 0.0005
+  patience: 2
+  min_delta: 0.001
+output:
+  root: models/wgan
+data:
+  primary:
+    path: cleaned_data/factor_etf_data.csv
+    index_col: Date
+    parse_dates: true
+  secondary:
+    path: cleaned_data/hfd.csv
+    index_col: Date
+    parse_dates: true
+  window: 24
+  samples: 256
+  dropna: true
+  shuffle: true

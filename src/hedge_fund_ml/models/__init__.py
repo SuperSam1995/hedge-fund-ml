@@ -13,6 +13,16 @@ from .autoencoder import (
     fit,
     transform,
 )
+from .gan import (
+    WGANArtifacts,
+    WGANConfig,
+    WGANModelConfig,
+    WGANOutputConfig,
+    WGANTrainingConfig,
+    build_gan,
+    sample,
+    train_gan,
+)
 
 __all__ = [
     "AutoencoderArtifacts",
@@ -21,7 +31,15 @@ __all__ = [
     "AutoencoderModelConfig",
     "AutoencoderOutputConfig",
     "AutoencoderTrainingConfig",
+    "WGANArtifacts",
+    "WGANConfig",
+    "WGANModelConfig",
+    "WGANOutputConfig",
+    "WGANTrainingConfig",
+    "build_gan",
     "build_model",
     "fit",
+    "sample",
+    "train_gan",
     "transform",
 ]

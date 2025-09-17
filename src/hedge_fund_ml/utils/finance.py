@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pickle
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -114,7 +114,7 @@ def random_sampling(
     generator = rng or np.random.default_rng()
     indices = generator.integers(0, data.shape[0] - window + 1, size=n_samples)
     samples = np.stack([data[start : start + window] for start in indices])
-    return samples
+    return cast(NDArray[np.float64], samples)
 
 
 def transaction_cost(
@@ -133,7 +133,8 @@ def transaction_cost(
     delta = np.asarray(old_weights, dtype=np.float64) - np.asarray(
         new_weights, dtype=np.float64
     )
-    return 0.5 * np.square(delta) * diag
+    cost = 0.5 * np.square(delta) * diag
+    return cast(NDArray[np.float64], cost)
 
 
 def price_impact(
@@ -153,11 +154,12 @@ def price_impact(
     old_arr = np.asarray(old_weights, dtype=np.float64)
     new_arr = np.asarray(new_weights, dtype=np.float64)
     delta = old_arr - new_arr
-    return (
+    impact = (
         phi * new_arr * diag * delta
         - old_arr * diag * delta
         - 0.5 * np.square(delta) * diag
     )
+    return cast(NDArray[np.float64], impact)
 
 
 def reshape_cab(dataframes: Sequence[pd.DataFrame]) -> List[pd.DataFrame]:
