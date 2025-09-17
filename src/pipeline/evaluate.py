@@ -171,9 +171,7 @@ def _compute_metrics(
                     risk_aversion=settings.risk_aversion,
                     periods_per_year=settings.periods_per_year,
                 ),
-                "omega": omega_ratio(
-                    series, threshold=settings.omega_threshold
-                ),
+                "omega": omega_ratio(series, threshold=settings.omega_threshold),
             }
     metrics["turnover"] = {"value": turnover(weights)}
     return metrics
