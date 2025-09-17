@@ -28,10 +28,10 @@ train_gan:
 	$(PYTHON_DL) -m hedge_fund_ml.cli train-gan
 
 replicate:
-	$(PYTHON) -m hedge_fund_ml.cli replicate
+	$(PYTHON) -m scripts.replicate --config configs/replicate.yaml
 
 eval:
-	$(PYTHON) -m hedge_fund_ml.cli eval
+	$(PYTHON) -m scripts.eval --config configs/eval.yaml
 
 report:
 	$(PYTHON) -m hedge_fund_ml.cli report
