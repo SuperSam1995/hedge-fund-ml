@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 import pickle
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Dict, Iterable
 
 import numpy as np
 import pandas as pd
@@ -82,7 +82,7 @@ class OutputConfig(BaseModel):
     def _resolve(self, base: Path, target: Path) -> Path:
         return target if target.is_absolute() else base / target
 
-    def dataset_paths(self) -> Dict[str, Path]:
+    def dataset_paths(self) -> dict[str, Path]:
         base = self.processed_dir
         return {
             "hedge_funds": self._resolve(base, self.hedge_funds),
@@ -90,7 +90,7 @@ class OutputConfig(BaseModel):
             "risk_free": self._resolve(base, self.risk_free),
         }
 
-    def metadata_paths(self) -> Dict[str, Path]:
+    def metadata_paths(self) -> dict[str, Path]:
         base = self.processed_dir
         return {
             "hedge_fund_names": self._resolve(base, self.hedge_fund_names),
@@ -113,7 +113,7 @@ class DataPrepConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "DataPrepConfig":
+    def from_yaml(cls, path: Path | str) -> DataPrepConfig:
         with Path(path).open("r", encoding="utf-8") as handle:
             payload = yaml.safe_load(handle) or {}
         return cls.model_validate(payload)
@@ -123,9 +123,9 @@ class DataPrepConfig(BaseModel):
 class RawData:
     risk_free: pd.DataFrame
     hedge_fund: pd.DataFrame
-    hedge_fund_names: Dict[str, str]
+    hedge_fund_names: dict[str, str]
     etf_raw: pd.DataFrame
-    etf_names: Dict[str, str]
+    etf_names: dict[str, str]
 
 
 @dataclass
@@ -133,8 +133,8 @@ class PreparedData:
     risk_free: pd.DataFrame
     hedge_funds: pd.DataFrame
     factor_etf: pd.DataFrame
-    hedge_fund_names: Dict[str, str]
-    factor_etf_names: Dict[str, str]
+    hedge_fund_names: dict[str, str]
+    factor_etf_names: dict[str, str]
 
 
 def _normalize_hfd_label(label: str) -> str:
@@ -189,7 +189,7 @@ def load_raw(config: DataPrepConfig, registry: DataRegistry | None = None) -> Ra
 
     nav_header = pd.read_csv(nav_path, nrows=1)
     nav_header = nav_header.drop(columns=["Unnamed: 0"], errors="ignore")
-    hedge_fund_names: Dict[str, str] = {}
+    hedge_fund_names: dict[str, str] = {}
     for column, code in nav_header.iloc[0].items():
         code_str = str(code)
         if code_str == "Date":
@@ -218,9 +218,7 @@ def load_raw(config: DataPrepConfig, registry: DataRegistry | None = None) -> Ra
     )
 
 
-def _prepare_risk_free(
-    raw_rf: pd.DataFrame, processing: ProcessingConfig
-) -> pd.DataFrame:
+def _prepare_risk_free(raw_rf: pd.DataFrame, processing: ProcessingConfig) -> pd.DataFrame:
     rf = raw_rf.copy()
     rf["Date"] = pd.to_datetime(rf["Date"], format="%Y%m%d")
     rf = rf.set_index("Date").sort_index()
@@ -253,13 +251,13 @@ def _prepare_hedge_funds(
 
 def _prepare_factor_etf(
     raw_etf: pd.DataFrame,
-    etf_names: Dict[str, str],
+    etf_names: dict[str, str],
     rf: pd.DataFrame,
     processing: ProcessingConfig,
-) -> tuple[pd.DataFrame, Dict[str, str]]:
+) -> tuple[pd.DataFrame, dict[str, str]]:
     data_rows = raw_etf.iloc[2:].reset_index(drop=True)
     ticker_row = raw_etf.iloc[1].fillna("")
-    series_dict: Dict[str, pd.Series] = {}
+    series_dict: dict[str, pd.Series] = {}
     for idx in range(0, raw_etf.shape[1], 2):
         value_idx = idx + 1
         if value_idx >= raw_etf.shape[1]:
@@ -344,7 +342,7 @@ def _write_frame(path: Path, frame: pd.DataFrame) -> None:
     frame_to_save.to_csv(path)
 
 
-def _write_pickle(path: Path, payload: Dict[str, str]) -> None:
+def _write_pickle(path: Path, payload: dict[str, str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as handle:
         pickle.dump(payload, handle)

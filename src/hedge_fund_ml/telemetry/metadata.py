@@ -6,20 +6,20 @@ import importlib.metadata as importlib_metadata
 import json
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Iterable
 
 
 @dataclass
 class RunMetadata:
     seed: int
     python_version: str
-    packages: Dict[str, str]
+    packages: dict[str, str]
     git_commit: str
     git_dirty: bool
 
-    def to_dict(self) -> Dict[str, object]:
+    def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
     def to_json(self) -> str:
@@ -29,8 +29,8 @@ class RunMetadata:
         Path(path).write_text(self.to_json(), encoding="utf-8")
 
 
-def _package_versions(packages: Iterable[str]) -> Dict[str, str]:
-    versions: Dict[str, str] = {}
+def _package_versions(packages: Iterable[str]) -> dict[str, str]:
+    versions: dict[str, str] = {}
     for name in packages:
         try:
             versions[name] = importlib_metadata.version(name)

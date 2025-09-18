@@ -56,7 +56,7 @@ class ReplicateConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "ReplicateConfig":
+    def from_yaml(cls, path: Path | str) -> ReplicateConfig:
         try:
             payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         except FileNotFoundError as exc:  # pragma: no cover - CLI handles error
@@ -151,9 +151,7 @@ def run_replication(config: ReplicateConfig) -> ReplicationResult:
             },
         }
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
     return ReplicationResult(
         feature_frame=config.features.data.output_features,

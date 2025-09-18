@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import numpy as np
 from pandas import DataFrame, Series
@@ -56,13 +57,11 @@ class HKSpanState:
         }
 
     @classmethod
-    def from_dict(cls, payload: dict[str, Any]) -> "HKSpanState":
+    def from_dict(cls, payload: dict[str, Any]) -> HKSpanState:
         coef_payload = payload["coefficients"]
         coef_index = _deserialise_labels(coef_payload["index"])
         coef_columns = _deserialise_labels(coef_payload["columns"])
-        coefficients = DataFrame(
-            coef_payload["values"], index=coef_index, columns=coef_columns
-        )
+        coefficients = DataFrame(coef_payload["values"], index=coef_index, columns=coef_columns)
         intercept_payload = payload["intercept"]
         intercept_index = _deserialise_labels(intercept_payload["index"])
         intercept = Series(intercept_payload["values"], index=intercept_index)
@@ -76,7 +75,7 @@ class HKSpanModel:
         self.config = config
         self.state: HKSpanState | None = None
 
-    def fit(self, span: DataFrame, target: DataFrame) -> "HKSpanModel":
+    def fit(self, span: DataFrame, target: DataFrame) -> HKSpanModel:
         if span.empty or target.empty:
             raise ValueError("span and target must contain observations")
         aligned_span, aligned_target = span.align(target, join="inner", axis=0)
@@ -144,12 +143,10 @@ class HKSpanModel:
             "config": self.config.model_dump(),
             "state": self.state.to_dict(),
         }
-        target.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path | str) -> "HKSpanModel":
+    def load(cls, path: Path | str) -> HKSpanModel:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         config = HKSpanConfig.model_validate(payload["config"])
         model = cls(config=config)

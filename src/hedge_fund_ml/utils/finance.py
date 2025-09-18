@@ -9,8 +9,9 @@ annotations to support static analysis.
 from __future__ import annotations
 
 import pickle
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -99,7 +100,7 @@ def random_sampling(
     dataset: ArrayLike,
     n_samples: int,
     window: int,
-    rng: Optional[np.random.Generator] = None,
+    rng: np.random.Generator | None = None,
 ) -> NDArray[np.float64]:
     """Return ``n_samples`` rolling windows drawn uniformly from ``dataset``."""
 
@@ -130,9 +131,7 @@ def transaction_cost(
 
     covariance_arr = np.asarray(covariance, dtype=np.float64)
     diag = np.sqrt(np.diag(covariance_arr)) * impact_scale
-    delta = np.asarray(old_weights, dtype=np.float64) - np.asarray(
-        new_weights, dtype=np.float64
-    )
+    delta = np.asarray(old_weights, dtype=np.float64) - np.asarray(new_weights, dtype=np.float64)
     cost = 0.5 * np.square(delta) * diag
     return cast(NDArray[np.float64], cost)
 
@@ -154,21 +153,17 @@ def price_impact(
     old_arr = np.asarray(old_weights, dtype=np.float64)
     new_arr = np.asarray(new_weights, dtype=np.float64)
     delta = old_arr - new_arr
-    impact = (
-        phi * new_arr * diag * delta
-        - old_arr * diag * delta
-        - 0.5 * np.square(delta) * diag
-    )
+    impact = phi * new_arr * diag * delta - old_arr * diag * delta - 0.5 * np.square(delta) * diag
     return cast(NDArray[np.float64], impact)
 
 
-def reshape_cab(dataframes: Sequence[pd.DataFrame]) -> List[pd.DataFrame]:
+def reshape_cab(dataframes: Sequence[pd.DataFrame]) -> list[pd.DataFrame]:
     """Convert a list of matrices with shape ``(A, B, C)`` to ``(C, A, B)``."""
 
     if not dataframes:
         raise ValueError("dataframes must contain at least one element")
     columns = dataframes[0].columns
-    reshaped: List[pd.DataFrame] = []
+    reshaped: list[pd.DataFrame] = []
     for column in columns:
         matrix = pd.DataFrame([df[column] for df in dataframes])
         reshaped.append(matrix)
@@ -186,9 +181,9 @@ def ex_post_return(
     if window <= 0:
         raise ValueError("window must be positive")
 
-    penalties: List[List[float]] = []
+    penalties: list[list[float]] = []
     for idx in range(len(ex_ante.columns)):
-        series_penalties: List[float] = []
+        series_penalties: list[float] = []
         for i in range(1, len(factor_etf) - window):
             cov_matrix = factor_etf.iloc[i : i + window].cov()
             new_x = strat_weight[idx].iloc[i]
@@ -198,9 +193,9 @@ def ex_post_return(
             series_penalties.append(float(np.sum(tc + pi)))
         penalties.append(series_penalties)
 
-    ex_post: List[List[float]] = []
-    for idx, column in enumerate(ex_ante.columns):
-        series: List[float] = [float(ex_ante.iloc[:, idx][0])]
+    ex_post: list[list[float]] = []
+    for idx, _column in enumerate(ex_ante.columns):
+        series: list[float] = [float(ex_ante.iloc[:, idx][0])]
         for i in range(1, len(ex_ante)):
             series.append(float(ex_ante.iloc[:, idx][i] + penalties[idx][i - 1]))
         ex_post.append(series)
@@ -211,7 +206,7 @@ def factor_hf_split(
     array: ArrayLike,
     split_pos: int,
     reshape: bool = True,
-) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """Split a 3D array into factor and hedge-fund slices."""
 
     data = np.asarray(array, dtype=np.float64)

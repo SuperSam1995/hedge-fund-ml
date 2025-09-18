@@ -44,9 +44,7 @@ def test_train_and_sample_shape(tmp_path) -> None:
     assert not artifacts.history.empty
 
     sample_cfg = cfg.model_copy(
-        update={
-            "output": WGANOutputConfig(root=cfg.output.root, run_path=artifacts.run_dir)
-        }
+        update={"output": WGANOutputConfig(root=cfg.output.root, run_path=artifacts.run_dir)}
     )
     generated = sample(5, sample_cfg)
     assert generated.shape == (5, 4, 3)

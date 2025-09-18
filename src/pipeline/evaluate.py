@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, cast
+from typing import cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -80,7 +80,7 @@ class EvaluationConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "EvaluationConfig":
+    def from_yaml(cls, path: Path | str) -> EvaluationConfig:
         try:
             payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         except FileNotFoundError as exc:  # pragma: no cover - CLI handles error
@@ -105,7 +105,7 @@ def _read_panel(path: Path | str) -> pd.DataFrame:
         splits = [col.split("__") for col in frame.columns]
         width = max(len(part) for part in splits)
         padded = [part + [None] * (width - len(part)) for part in splits]
-        arrays = [list(level) for level in zip(*padded)]
+        arrays = [list(level) for level in zip(*padded, strict=False)]
         names = ["series", *[f"level_{idx}" for idx in range(1, width)]]
         frame.columns = pd.MultiIndex.from_arrays(arrays, names=names)
     return frame
@@ -147,12 +147,12 @@ def _compute_metrics(
     panel: pd.DataFrame,
     weights: pd.DataFrame,
     settings: EvaluationSettings,
-) -> Dict[str, Dict[str, float]]:
+) -> dict[str, dict[str, float]]:
     target = _to_float_frame(_select_series(panel, "target"))
     replica = _to_float_frame(_select_series(panel, "hk_prediction"))
     residual = _to_float_frame(_select_series(panel, "hk_residual"))
 
-    metrics: Dict[str, Dict[str, float]] = {}
+    metrics: dict[str, dict[str, float]] = {}
     for name, data in {
         "target": target,
         "replica": replica,
@@ -221,7 +221,7 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
         splits = [col.split("__") for col in weights.columns]
         width = max(len(part) for part in splits)
         padded = [part + [None] * (width - len(part)) for part in splits]
-        arrays = [list(level) for level in zip(*padded)]
+        arrays = [list(level) for level in zip(*padded, strict=False)]
         names = [f"level_{idx}" for idx in range(width)]
         weights.columns = pd.MultiIndex.from_arrays(arrays, names=names)
     metrics_dict = _compute_metrics(panel, weights.astype(float), config.settings)

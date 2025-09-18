@@ -70,7 +70,7 @@ class WGANModelConfig(BaseModel):
 
     model_config = {"extra": "forbid", "validate_assignment": True}
 
-    def with_data_dim(self, dimension: int) -> "WGANModelConfig":
+    def with_data_dim(self, dimension: int) -> WGANModelConfig:
         if dimension <= 0:
             raise ValueError("data dimension must be positive")
         if self.data_dim is not None and self.data_dim != dimension:
@@ -131,7 +131,7 @@ class WGANConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "WGANConfig":
+    def from_yaml(cls, path: Path | str) -> WGANConfig:
         payload = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         return cls.model_validate(payload)
 
@@ -204,9 +204,7 @@ def build_gan(cfg: WGANConfig) -> WGANModels:
     generator = _build_generator(cfg)
     critic = _build_critic(cfg)
 
-    critic_optimizer = keras.optimizers.RMSprop(
-        learning_rate=cfg.training.learning_rate
-    )
+    critic_optimizer = keras.optimizers.RMSprop(learning_rate=cfg.training.learning_rate)
     critic.compile(loss=_wasserstein_loss, optimizer=critic_optimizer)
 
     critic.trainable = False
@@ -214,9 +212,7 @@ def build_gan(cfg: WGANConfig) -> WGANModels:
     generated = generator(z)
     validity = critic(generated)
     combined = keras.Model(z, validity, name="wgan")
-    generator_optimizer = keras.optimizers.RMSprop(
-        learning_rate=cfg.training.learning_rate
-    )
+    generator_optimizer = keras.optimizers.RMSprop(learning_rate=cfg.training.learning_rate)
     combined.compile(loss=_wasserstein_loss, optimizer=generator_optimizer)
     critic.trainable = True
 
@@ -280,9 +276,7 @@ def train_gan(data: pd.DataFrame | np.ndarray, cfg: WGANConfig) -> WGANArtifacts
             for _ in range(cfg.training.n_critic):
                 indices = rng.integers(0, scaled.shape[0], size=batch_size)
                 real_samples = scaled[indices]
-                noise = rng.normal(size=(batch_size, cfg.model.latent_dim)).astype(
-                    np.float32
-                )
+                noise = rng.normal(size=(batch_size, cfg.model.latent_dim)).astype(np.float32)
 
                 critic_loss_real = models.critic.train_on_batch(real_samples, valid)
                 generated_samples = models.generator.predict(noise, verbose=0)
@@ -291,16 +285,12 @@ def train_gan(data: pd.DataFrame | np.ndarray, cfg: WGANConfig) -> WGANArtifacts
                 critic_losses.append(critic_loss)
                 _clip_critic_weights(models.critic, cfg.training.clip_value)
 
-            noise = rng.normal(size=(batch_size, cfg.model.latent_dim)).astype(
-                np.float32
-            )
+            noise = rng.normal(size=(batch_size, cfg.model.latent_dim)).astype(np.float32)
             generator_loss = models.combined.train_on_batch(noise, valid)
             generator_losses.append(float(generator_loss))
 
         epoch_critic_loss = float(np.mean(critic_losses)) if critic_losses else np.nan
-        epoch_generator_loss = (
-            float(np.mean(generator_losses)) if generator_losses else np.nan
-        )
+        epoch_generator_loss = float(np.mean(generator_losses)) if generator_losses else np.nan
         history_rows.append(
             {
                 "epoch": epoch,

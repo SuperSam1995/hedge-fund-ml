@@ -6,7 +6,6 @@ import importlib
 import importlib.util
 import os
 import random
-from typing import Dict
 
 import numpy as np
 
@@ -19,7 +18,7 @@ def _optional_import(name: str):
     return importlib.import_module(name)
 
 
-def set_global_seed(seed: int) -> Dict[str, str]:
+def set_global_seed(seed: int) -> dict[str, str]:
     """Seed Python, NumPy, PyTorch and TensorFlow if available."""
 
     if seed < 0:
@@ -29,7 +28,7 @@ def set_global_seed(seed: int) -> Dict[str, str]:
     random.seed(seed)
     np.random.seed(seed)
 
-    affected: Dict[str, str] = {"python": str(seed), "numpy": str(seed)}
+    affected: dict[str, str] = {"python": str(seed), "numpy": str(seed)}
 
     torch = _optional_import("torch")
     if torch is not None:

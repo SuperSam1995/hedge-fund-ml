@@ -24,9 +24,7 @@ try:  # pragma: no cover - optional runtime guard for GPU-free environments
     import tensorflow as _tf
     from tensorflow import keras
 except ImportError as exc:  # pragma: no cover - env dependent
-    raise ImportError(
-        "TensorFlow (tf.keras) is required for the autoencoder module"
-    ) from exc
+    raise ImportError("TensorFlow (tf.keras) is required for the autoencoder module") from exc
 
 try:  # pragma: no cover - GPU-less CI
     _tf.config.set_visible_devices([], "GPU")
@@ -70,13 +68,11 @@ class AutoencoderModelConfig(BaseModel):
 
     model_config = {"extra": "forbid", "validate_assignment": True}
 
-    def with_input_dim(self, dimension: int) -> "AutoencoderModelConfig":
+    def with_input_dim(self, dimension: int) -> AutoencoderModelConfig:
         if dimension <= 0:
             raise ValueError("input dimension must be positive")
         if self.input_dim is not None and self.input_dim != dimension:
-            raise ValueError(
-                "Configured input_dim does not match training data dimension"
-            )
+            raise ValueError("Configured input_dim does not match training data dimension")
         return self.model_copy(update={"input_dim": dimension})
 
 
@@ -135,16 +131,14 @@ class AutoencoderConfig(BaseModel):
     seed: int = 42
     packages: list[str] = Field(default_factory=lambda: list(_DEFAULT_PACKAGES))
     model: AutoencoderModelConfig = Field(default_factory=AutoencoderModelConfig)
-    training: AutoencoderTrainingConfig = Field(
-        default_factory=AutoencoderTrainingConfig
-    )
+    training: AutoencoderTrainingConfig = Field(default_factory=AutoencoderTrainingConfig)
     output: AutoencoderOutputConfig = Field(default_factory=AutoencoderOutputConfig)
     data: AutoencoderDataConfig | None = None
 
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "AutoencoderConfig":
+    def from_yaml(cls, path: Path | str) -> AutoencoderConfig:
         payload = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
         return cls.model_validate(payload)
 
@@ -214,17 +208,15 @@ def build_model(cfg: AutoencoderConfig) -> keras.Model:
 
 
 def _prepare_frames(
-    X_train: pd.DataFrame | np.ndarray,
-    X_val: pd.DataFrame | np.ndarray,
+    x_train: pd.DataFrame | np.ndarray,
+    x_val: pd.DataFrame | np.ndarray,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    train_frame = _ensure_frame(X_train)
-    val_frame = _ensure_frame(X_val)
+    train_frame = _ensure_frame(x_train)
+    val_frame = _ensure_frame(x_val)
     missing = set(train_frame.columns) - set(val_frame.columns)
     extra = set(val_frame.columns) - set(train_frame.columns)
     if missing or extra:
-        raise ValueError(
-            "Training and validation data must contain the same feature columns"
-        )
+        raise ValueError("Training and validation data must contain the same feature columns")
     val_frame = val_frame.loc[:, train_frame.columns]
     return train_frame, val_frame
 
@@ -240,14 +232,14 @@ def _write_metrics(metrics: pd.DataFrame, path: Path) -> None:
 
 
 def fit(
-    X_train: pd.DataFrame | np.ndarray,
-    X_val: pd.DataFrame | np.ndarray,
+    x_train: pd.DataFrame | np.ndarray,
+    x_val: pd.DataFrame | np.ndarray,
     cfg: AutoencoderConfig,
 ) -> AutoencoderArtifacts:
     """Train the autoencoder and persist artefacts."""
 
     set_global_seed(cfg.seed)
-    train_frame, val_frame = _prepare_frames(X_train, X_val)
+    train_frame, val_frame = _prepare_frames(x_train, x_val)
 
     cfg = cfg.model_copy(
         update={
@@ -321,7 +313,7 @@ def fit(
 
 
 def transform(
-    X: pd.DataFrame | np.ndarray,
+    x: pd.DataFrame | np.ndarray,
     cfg: AutoencoderConfig,
 ) -> pd.DataFrame:
     """Project ``X`` into the learned latent space using saved artefacts."""
@@ -335,7 +327,7 @@ def transform(
     if not expected_columns:
         raise ValueError("Saved autoencoder columns metadata is empty")
 
-    frame = _ensure_frame(X)
+    frame = _ensure_frame(x)
     missing = set(expected_columns) - set(frame.columns)
     if missing:
         raise ValueError(f"Input data missing columns: {sorted(missing)}")
