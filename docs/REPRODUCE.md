@@ -2,8 +2,14 @@
 
 ## Command overview
 
-Run the entire research pipeline, including optional deep-learning components,
-with:
+Ensure dependencies are installed once via:
+
+```bash
+uv sync --group dev --extra deep-learning
+```
+
+Thereafter run the entire research pipeline, including optional deep-learning
+components, with:
 
 ```bash
 make reproduce
@@ -12,6 +18,8 @@ make reproduce
 The Makefile target invokes `uv run --group dev --extra deep-learning -m
 hedge_fund_ml.cli reproduce`, ensuring the TensorFlow/Keras extras are available
 for the GAN and autoencoder placeholders while respecting the project lockfile.
+`uv run` shells into the managed virtual environment, so there is no need to
+activate `.venv/` manually.
 
 ## Data expectations
 

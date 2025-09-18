@@ -43,6 +43,19 @@ locks dependencies, and provides continuous integration friendly workflows.
 The project targets Python 3.10+ and keeps notebooks data-only by consuming the
 `hedge_fund_ml` package.
 
+### Running commands via `uv`
+
+No manual environment activation is required. Use `uv run` to execute tooling
+inside the locked environment, for example:
+
+```bash
+uv run --group dev pytest -q
+uv run --group dev --extra deep-learning python -m hedge_fund_ml.cli reproduce
+```
+
+This guarantees the package (and optional extras) import cleanly during tests
+or when running the CLI.
+
 ## Data governance
 
 Data lives under `data/` and is tracked via `configs/data_registry.yaml`.  The
