@@ -23,6 +23,7 @@ from .gan import (
     sample,
     train_gan,
 )
+from .itransformer import ITransformer, ITransformerConfig
 
 __all__ = [
     "AutoencoderArtifacts",
@@ -39,6 +40,8 @@ __all__ = [
     "build_gan",
     "build_model",
     "fit",
+    "ITransformer",
+    "ITransformerConfig",
     "sample",
     "train_gan",
     "transform",
