@@ -41,3 +41,6 @@ reports/**/*.svg
 
 # misc
 .DS_Store
+
+# notebooks are text-only; ipynb generated at runtime
+notebooks/**/*.ipynb
