@@ -8,8 +8,6 @@ annotations to support static analysis.
 
 from __future__ import annotations
 
-import pickle
-from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
@@ -20,13 +18,9 @@ from numpy.typing import ArrayLike, NDArray
 __all__ = [
     "normalization",
     "read_csv",
-    "load_pickle",
-    "save_pickle",
     "random_sampling",
     "transaction_cost",
     "price_impact",
-    "reshape_cab",
-    "ex_post_return",
     "factor_hf_split",
 ]
 
@@ -76,24 +70,6 @@ def read_csv(path: Path | str, parse_dates: bool = True) -> pd.DataFrame:
     if parse_dates and "Date" in df:
         df = df.set_index("Date").sort_index()
     return df
-
-
-def load_pickle(path: Path | str):
-    """Read a pickle file from disk using ``pathlib`` semantics."""
-
-    with Path(path).open("rb") as file:
-        return pickle.load(file)
-
-
-def save_pickle(obj, path: Path | str) -> None:
-    """Persist an object as a pickle file and verify readability."""
-
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("wb") as file:
-        pickle.dump(obj, file)
-    # Minimal smoke test to ensure the file can be read back.
-    load_pickle(target)
 
 
 def random_sampling(
@@ -155,51 +131,6 @@ def price_impact(
     delta = old_arr - new_arr
     impact = phi * new_arr * diag * delta - old_arr * diag * delta - 0.5 * np.square(delta) * diag
     return cast(NDArray[np.float64], impact)
-
-
-def reshape_cab(dataframes: Sequence[pd.DataFrame]) -> list[pd.DataFrame]:
-    """Convert a list of matrices with shape ``(A, B, C)`` to ``(C, A, B)``."""
-
-    if not dataframes:
-        raise ValueError("dataframes must contain at least one element")
-    columns = dataframes[0].columns
-    reshaped: list[pd.DataFrame] = []
-    for column in columns:
-        matrix = pd.DataFrame([df[column] for df in dataframes])
-        reshaped.append(matrix)
-    return reshaped
-
-
-def ex_post_return(
-    ex_ante: pd.DataFrame,
-    window: int,
-    strat_weight: Sequence[pd.DataFrame],
-    factor_etf: pd.DataFrame,
-) -> pd.DataFrame:
-    """Compute ex-post returns after deducting transaction costs and impact."""
-
-    if window <= 0:
-        raise ValueError("window must be positive")
-
-    penalties: list[list[float]] = []
-    for idx in range(len(ex_ante.columns)):
-        series_penalties: list[float] = []
-        for i in range(1, len(factor_etf) - window):
-            cov_matrix = factor_etf.iloc[i : i + window].cov()
-            new_x = strat_weight[idx].iloc[i]
-            old_x = strat_weight[idx].iloc[i - 1]
-            tc = transaction_cost(old_x, new_x, cov_matrix)
-            pi = price_impact(old_x, new_x, cov_matrix)
-            series_penalties.append(float(np.sum(tc + pi)))
-        penalties.append(series_penalties)
-
-    ex_post: list[list[float]] = []
-    for idx, _column in enumerate(ex_ante.columns):
-        series: list[float] = [float(ex_ante.iloc[:, idx][0])]
-        for i in range(1, len(ex_ante)):
-            series.append(float(ex_ante.iloc[:, idx][i] + penalties[idx][i - 1]))
-        ex_post.append(series)
-    return pd.DataFrame(ex_post, columns=ex_ante.index, index=ex_ante.columns).T
 
 
 def factor_hf_split(
