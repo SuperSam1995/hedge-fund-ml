@@ -4,6 +4,10 @@ Modernised research tooling for the "Do You Really Need to Pay 2/20?" hedge
 fund replication study.  The repository now packages the reusable analytics,
 locks dependencies, and provides continuous integration friendly workflows.
 
+Recommended: Python 3.11 for deep learning.
+
+Baseline pipeline works on 3.13; training jobs use 3.11.
+
 ## Repository layout
 
 ```
@@ -25,20 +29,20 @@ locks dependencies, and provides continuous integration friendly workflows.
 
 1. Install dependencies with [uv](https://docs.astral.sh/uv/):
    ```bash
-   uv sync --group dev
+   uv python install 3.11
+   uv sync --group dev --group deep-learning-torch
    ```
-   This provisions the in-repo `.venv/` with both runtime and development tooling.
+   This provisions the in-repo `.venv/` with both runtime and deep learning tooling on
+   Python 3.11.
 2. Refresh the lockfile after dependency updates:
    ```bash
    uv lock --upgrade-package <name>
    ```
    Use `uv lock` (without arguments) for a full refresh. Commit the resulting `uv.lock` to
    keep CI reproducible.
-3. Install deep-learning extras only when working with the autoencoder/GAN components:
-   ```bash
-   uv sync --group dev --extra deep-learning
-   ```
-   Subsequent tooling invocations can opt-in transiently via `uv run --extra deep-learning <command>`.
+3. CI keeps running against the baseline configuration (Python 3.13, runtime groups only)
+   to ensure the classical pipeline remains green. GPU-oriented workflows should target
+   Python 3.11 locally or on HPC nodes.
 
 The project targets Python 3.10+ and keeps notebooks data-only by consuming the
 `hedge_fund_ml` package.
@@ -50,10 +54,10 @@ inside the locked environment, for example:
 
 ```bash
 uv run --group dev pytest -q
-uv run --group dev --extra deep-learning python -m hedge_fund_ml.cli reproduce
+uv run --group dev --group deep-learning-torch python -m hedge_fund_ml.cli reproduce
 ```
 
-This guarantees the package (and optional extras) import cleanly during tests
+This guarantees the package (and optional deep learning group) import cleanly during tests
 or when running the CLI.
 
 ## Data governance
@@ -94,8 +98,8 @@ replication, evaluation and reporting — via:
 make reproduce
 ```
 
-The target shells out to `uv run --group dev --extra deep-learning` so that the
-optional TensorFlow/Keras dependencies required by the GAN/autoencoder shims
+The target shells out to `uv run --group dev --group deep-learning-torch` so that the
+optional PyTorch Lightning/Optuna dependencies required by the GAN/autoencoder shims
 are available. Expect the command to:
 
 1. Validate that all datasets declared in `configs/data_registry.yaml` exist
