@@ -15,3 +15,10 @@ repos:
       - {id: trailing-whitespace}
       - {id: check-yaml}
       - {id: check-toml}
+  - repo: local
+    hooks:
+      - id: forbid-ipynb
+        name: Forbid committing .ipynb (use Jupytext .py)
+        entry: bash -c 'if git diff --cached --name-only | grep -E "\\.ipynb$" >/dev/null; then echo "Please commit the paired .py notebook instead (Jupytext)."; exit 1; fi'
+        language: system
+        pass_filenames: false
