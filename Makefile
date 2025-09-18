@@ -9,30 +9,30 @@ setup:
 	$(UV) sync --group dev
 
 lint:
-	$(UV) run --group dev ruff check src tests
-	$(UV) run --group dev black --check src tests
-	$(UV) run --group dev mypy src tests
+	uv run --group dev ruff check src tests
+	uv run --group dev black --check src tests
+	uv run --group dev mypy src tests
 
 test:
-	$(UV) run --group dev --extra deep-learning pytest -q
+	uv run --group dev --extra deep-learning pytest -q
 
 data:
-	$(PYTHON) scripts/data_prepare.py
+	uv run --group dev python -m scripts.data_prepare --config configs/data.yaml
 
 features:
-	$(PYTHON) -m scripts.build_features --config configs/features.yaml
+	uv run --group dev python -m scripts.build_features --config configs/features.yaml
 
 train_ae:
-	$(PYTHON_DL) -m hedge_fund_ml.cli train-ae
+	uv run --group dev --extra deep-learning python -m scripts.train_ae
 
 train_gan:
-	$(PYTHON_DL) -m hedge_fund_ml.cli train-gan
+	uv run --group dev --extra deep-learning python -m scripts.train_gan
 
 replicate:
-	$(PYTHON) -m scripts.replicate --config configs/replicate.yaml
+	uv run --group dev python -m scripts.replicate --config configs/replicate.yaml
 
 eval:
-	$(PYTHON) -m scripts.eval --config configs/eval.yaml
+	uv run --group dev python -m scripts.eval --config configs/eval.yaml
 
 report:
 	$(UV) run --group dev papermill notebooks/final_report.ipynb reports/_tmp_$(REPORT_DATE).ipynb \
