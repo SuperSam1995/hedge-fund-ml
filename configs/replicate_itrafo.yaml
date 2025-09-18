@@ -1,11 +1,23 @@
-targets: ["HEDG"]
-features_csv: data/interim/features.csv          # reuse your features panel (month-end)
-forecast_csv: data/interim/itrafo_forecast.csv   # produced by the trainer
-etf_panel_csv: cleaned_data/factor_etf_data.csv  # ETF returns used for decoding
-
-decode:
-  leverage: 1.0          # ||w||_1 ≤ leverage
+seed: 42
+packages: ["numpy", "pandas", "cvxpy"]
+paths:
+  itrafo_forecast_csv: data/interim/itrafo_forecast.csv
+  etf_forecast_csv: data/interim/etf_forecast.csv
+  weights_csv: data/interim/replication_weights_itrafo.csv
+  series_csv: data/interim/replication_series_itrafo.csv
+  metadata_json: data/interim/replication_metadata_itrafo.json
+cols:
+  date: date
+  strategy: strategy
+  yhat: yhat
+  etfs: [SPY, TLT, IWM, EFA, EEM, HYG, LQD, GLD, DBC, VNQ]
+hyper:
+  leverage: 1.0
+  lambda_to: 0.005
+  lambda_l2: 0.001
   long_only: false
-  lambda_turnover: 10.0  # ||w_t - w_{t-1}||_2^2
-  lambda_l2: 1.0
-  rebalance: M           # month-end
+  solver: OSQP
+  solver_opts:
+    eps_abs: 1.0e-06
+    eps_rel: 1.0e-06
+    max_iter: 20000
