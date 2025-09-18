@@ -1,0 +1,17 @@
+data:
+  panel: data/interim/features.csv
+  weights: data/interim/itrafo_weights.csv
+output:
+  metrics_csv: reports/metrics/itrafo_metrics.csv
+  metrics_json: reports/metrics/itrafo_metrics.json
+  figure: reports/figures/itrafo_cumulative.png
+  metadata: reports/metadata/itrafo_evaluation.json
+settings:
+  periods_per_year: 12
+  risk_free_rate: 0.0
+  risk_aversion: 3.0
+  omega_threshold: 0.0
+packages:
+  - numpy
+  - pandas
+  - matplotlib

@@ -1,0 +1,11 @@
+targets: ["HEDG"]
+features_csv: data/interim/features.csv          # reuse your features panel (month-end)
+forecast_csv: data/interim/itrafo_forecast.csv   # produced by the trainer
+etf_panel_csv: cleaned_data/factor_etf_data.csv  # ETF returns used for decoding
+
+decode:
+  leverage: 1.0          # ||w||_1 ≤ leverage
+  long_only: false
+  lambda_turnover: 10.0  # ||w_t - w_{t-1}||_2^2
+  lambda_l2: 1.0
+  rebalance: M           # month-end

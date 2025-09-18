@@ -1,0 +1,29 @@
+data:
+  panel_csv: cleaned_data/factor_etf_data.csv    # X features (ETFs/macros)
+  target_csv: cleaned_data/hfd.csv               # y indices (e.g., HEDG)
+  date_col: Date
+  freq: M
+  lookback: 36        # months
+  horizon: 1          # fwd_1
+  standardize: zscore # fit on train only
+  targets: ["HEDG"]   # start; later expand
+
+split:
+  train_end: 2014-12-31
+  val_end:   2019-12-31
+  test_end:  2024-12-31
+
+model:
+  d_model: 128
+  n_heads: 8
+  depth: 6
+  dropout: 0.1
+  attn_bias: false
+
+train:
+  batch_size: 64
+  max_epochs: 200
+  early_stopping_patience: 20
+  lr: 3e-4
+  weight_decay: 1e-4
+  seed: 1337
