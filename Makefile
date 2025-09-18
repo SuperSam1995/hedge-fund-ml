@@ -4,6 +4,7 @@ UV ?= uv
 PYTHON := $(UV) run --group dev python
 PYTHON_DL := $(UV) run --group dev --extra deep-learning python
 REPORT_DATE := $(shell date +%Y-%m-%d)
+REPORT_NOTEBOOK := notebooks/final_report.py  # text notebook (py:percent)
 
 setup:
 	$(UV) sync --group dev
@@ -35,12 +36,12 @@ eval:
 	uv run --group dev python -m scripts.eval --config configs/eval.yaml
 
 report:
-	$(UV) run --group dev papermill notebooks/final_report.ipynb reports/_tmp_$(REPORT_DATE).ipynb \
+	$(UV) run --group dev jupytext --to ipynb $(REPORT_NOTEBOOK) -o reports/_tmp_$(REPORT_DATE).ipynb
+	$(UV) run --group dev papermill reports/_tmp_$(REPORT_DATE).ipynb reports/_exec_$(REPORT_DATE).ipynb \
 	  -p metrics_path reports/metrics_latest.json \
 	  -p figures_dir reports/figures
-	$(UV) run --group dev jupyter nbconvert --to html --no-input reports/_tmp_$(REPORT_DATE).ipynb \
-	  --output-dir reports \
-	  --output final_report_$(REPORT_DATE).html
+	$(UV) run --group dev jupyter nbconvert --to html --no-input reports/_exec_$(REPORT_DATE).ipynb \
+	  --output reports/final_report_$(REPORT_DATE).html
 
 reproduce:
 	$(PYTHON_DL) -m hedge_fund_ml.cli reproduce
