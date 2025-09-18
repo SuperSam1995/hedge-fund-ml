@@ -8,8 +8,9 @@ source of truth for asset metadata.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Dict, Iterator, Literal
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -32,14 +33,14 @@ class DatasetConfig(BaseModel):
 
 
 class RegistryConfig(BaseModel):
-    datasets: Dict[str, DatasetConfig]
+    datasets: dict[str, DatasetConfig]
 
     model_config = {
         "extra": "forbid",
     }
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "RegistryConfig":
+    def from_yaml(cls, path: Path | str) -> RegistryConfig:
         with Path(path).open("r", encoding="utf-8") as handle:
             payload = yaml.safe_load(handle) or {}
             config: RegistryConfig = cls.model_validate(payload)
@@ -86,7 +87,7 @@ class DataRegistry:
         return dataset.checksum == self.checksum(name)
 
     @classmethod
-    def from_yaml(cls, root: Path | str, config_path: Path | str) -> "DataRegistry":
+    def from_yaml(cls, root: Path | str, config_path: Path | str) -> DataRegistry:
         config = RegistryConfig.from_yaml(config_path)
         return cls(root=root, config=config)
 

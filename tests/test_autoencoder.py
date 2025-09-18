@@ -53,11 +53,7 @@ def test_transform_preserves_row_count(tmp_path) -> None:
 
     result = fit(train, val, cfg)
     transform_cfg = cfg.model_copy(
-        update={
-            "output": AutoencoderOutputConfig(
-                root=cfg.output.root, run_path=result.run_dir
-            )
-        }
+        update={"output": AutoencoderOutputConfig(root=cfg.output.root, run_path=result.run_dir)}
     )
     latent = transform(data, transform_cfg)
     assert latent.shape[0] == data.shape[0]

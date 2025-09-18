@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -103,9 +104,7 @@ class ReturnsBuilder:
         shifted.columns = shifted.columns.set_names(["asset", "horizon"])
         return shifted
 
-    def build(
-        self, features: DataFrame, target: DataFrame | None = None
-    ) -> ReturnsDataset:
+    def build(self, features: DataFrame, target: DataFrame | None = None) -> ReturnsDataset:
         """Return lagged features and forward-shifted targets."""
 
         feature_returns = self._compute_returns(features)
@@ -121,10 +120,6 @@ class ReturnsBuilder:
         if self.config.dropna:
             dataset = dataset.dropna(how="any")
 
-        feature_cols = dataset.loc[
-            :, dataset.columns.get_level_values(1).str.startswith("lag_")
-        ]
-        target_cols = dataset.loc[
-            :, dataset.columns.get_level_values(1).str.startswith("fwd_")
-        ]
+        feature_cols = dataset.loc[:, dataset.columns.get_level_values(1).str.startswith("lag_")]
+        target_cols = dataset.loc[:, dataset.columns.get_level_values(1).str.startswith("fwd_")]
         return ReturnsDataset(features=feature_cols, target=target_cols)

@@ -15,9 +15,7 @@ def test_normalization_matches_variance_ratio() -> None:
     x = np.array([[1.0, 0.0], [0.0, 1.0]])
     beta = np.eye(2)
     scale = normalization(y, x, beta, window=2)
-    expected = np.sqrt(np.var(y, axis=0, ddof=1)) / np.sqrt(
-        np.var(x @ beta, axis=0, ddof=1)
-    )
+    expected = np.sqrt(np.var(y, axis=0, ddof=1)) / np.sqrt(np.var(x @ beta, axis=0, ddof=1))
     np.testing.assert_allclose(scale, expected)
 
 

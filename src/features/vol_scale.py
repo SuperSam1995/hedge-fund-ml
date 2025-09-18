@@ -31,7 +31,7 @@ class VolatilityScaler:
         self.config = config
         self.scale_: Series | None = None
 
-    def fit(self, data: DataFrame) -> "VolatilityScaler":
+    def fit(self, data: DataFrame) -> VolatilityScaler:
         if data.empty:
             raise ValueError("data must contain at least one observation")
         std = data.std(ddof=self.config.ddof)
@@ -62,15 +62,13 @@ class VolatilityScaler:
     @classmethod
     def load(
         cls, path: Path | str, config: VolatilityScaleConfig | None = None
-    ) -> "VolatilityScaler":
+    ) -> VolatilityScaler:
         frame = pd.read_csv(path, index_col=0)
         if frame.shape[1] != 1:
             raise ValueError("Serialized scaler must contain exactly one column")
         series = frame.iloc[:, 0]
         series.name = "scale"
-        active_config = (
-            config if config is not None else VolatilityScaleConfig.model_validate({})
-        )
+        active_config = config if config is not None else VolatilityScaleConfig.model_validate({})
         scaler = cls(active_config)
         scaler.scale_ = series
         return scaler

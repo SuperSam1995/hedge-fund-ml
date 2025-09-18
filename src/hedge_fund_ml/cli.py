@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import numpy as np
 import yaml
@@ -112,9 +112,7 @@ def run_replicate(
         "packages": config.packages,
         "note": "Synthetic replication artefact placeholder.",
     }
-    output_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     print(f"[replicate] artefact -> {output_path}")
     return output_path
 
@@ -135,9 +133,7 @@ def run_eval(
         "max_drawdown": float(rng.uniform(0.05, 0.15)),
     }
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.write_text(
-        json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8"
-    )
+    metrics_path.write_text(json.dumps(metrics, indent=2, sort_keys=True), encoding="utf-8")
     print(f"[eval] metrics -> {metrics_path}")
     return metrics_path
 
@@ -196,10 +192,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "--config",
             type=Path,
             default=None,
-            help=(
-                "Path to run configuration YAML "
-                f"(default: {DEFAULT_RUN_CONFIG_PATH})."
-            ),
+            help=("Path to run configuration YAML " f"(default: {DEFAULT_RUN_CONFIG_PATH})."),
         )
 
     def add_data_arguments(command: argparse.ArgumentParser) -> None:
@@ -216,9 +209,7 @@ def _build_parser() -> argparse.ArgumentParser:
             help="Root directory for project datasets.",
         )
 
-    data_parser = subparsers.add_parser(
-        "data", help="Validate datasets registered in YAML"
-    )
+    data_parser = subparsers.add_parser("data", help="Validate datasets registered in YAML")
     add_data_arguments(data_parser)
 
     def data_cmd(args: argparse.Namespace) -> None:
@@ -226,9 +217,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     data_parser.set_defaults(func=data_cmd)
 
-    train_ae_parser = subparsers.add_parser(
-        "train-ae", help="Run the autoencoder training stub"
-    )
+    train_ae_parser = subparsers.add_parser("train-ae", help="Run the autoencoder training stub")
     add_config_argument(train_ae_parser)
 
     def train_ae_cmd(args: argparse.Namespace) -> None:
@@ -236,9 +225,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     train_ae_parser.set_defaults(func=train_ae_cmd)
 
-    train_gan_parser = subparsers.add_parser(
-        "train-gan", help="Run the GAN training stub"
-    )
+    train_gan_parser = subparsers.add_parser("train-gan", help="Run the GAN training stub")
     add_config_argument(train_gan_parser)
 
     def train_gan_cmd(args: argparse.Namespace) -> None:
@@ -246,9 +233,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     train_gan_parser.set_defaults(func=train_gan_cmd)
 
-    replicate_parser = subparsers.add_parser(
-        "replicate", help="Generate replication artefacts"
-    )
+    replicate_parser = subparsers.add_parser("replicate", help="Generate replication artefacts")
     add_config_argument(replicate_parser)
 
     def replicate_cmd(args: argparse.Namespace) -> None:
@@ -272,9 +257,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     report_parser.set_defaults(func=report_cmd)
 
-    reproduce_parser = subparsers.add_parser(
-        "reproduce", help="Execute the full pipeline"
-    )
+    reproduce_parser = subparsers.add_parser("reproduce", help="Execute the full pipeline")
     add_config_argument(reproduce_parser)
     add_data_arguments(reproduce_parser)
 

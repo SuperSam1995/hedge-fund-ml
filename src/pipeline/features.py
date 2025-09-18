@@ -60,9 +60,7 @@ class DataPaths(BaseModel):
     output_features: Path = Field(
         description="Destination CSV for engineered features and outputs."
     )
-    output_model: Path = Field(
-        description="Destination JSON for the HK span model coefficients."
-    )
+    output_model: Path = Field(description="Destination JSON for the HK span model coefficients.")
     metadata: Path | None = Field(
         default=None,
         description="Optional location for run metadata (JSON).",
@@ -91,9 +89,7 @@ class SplitConfig(BaseModel):
     @classmethod
     def _parse_timestamp(
         cls,
-        value: (
-            str | int | float | date | datetime | np.datetime64 | pd.Timestamp | None
-        ),
+        value: str | int | float | date | datetime | np.datetime64 | pd.Timestamp | None,
     ) -> pd.Timestamp | None:
         if value is None:
             return None
@@ -102,7 +98,7 @@ class SplitConfig(BaseModel):
         return pd.Timestamp(value)
 
     @model_validator(mode="after")
-    def _check_order(self) -> "SplitConfig":
+    def _check_order(self) -> SplitConfig:
         if self.train_end < self.train_start:
             raise ValueError("train_end must be on or after train_start")
         if self.test_start is not None and self.test_start <= self.train_end:
@@ -143,14 +139,12 @@ class FeatureRunConfig(BaseModel):
     volatility: VolatilityScaleConfig = Field(
         default_factory=lambda: VolatilityScaleConfig.model_validate({})
     )
-    hk_span: HKSpanConfig = Field(
-        default_factory=lambda: HKSpanConfig.model_validate({})
-    )
+    hk_span: HKSpanConfig = Field(default_factory=lambda: HKSpanConfig.model_validate({}))
 
     model_config = {"extra": "forbid"}
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "FeatureRunConfig":
+    def from_yaml(cls, path: Path | str) -> FeatureRunConfig:
         try:
             payload = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
         except FileNotFoundError as exc:  # pragma: no cover - CLI handles error
@@ -235,12 +229,8 @@ def persist_artifacts(config: FeatureRunConfig, artifacts: FeatureArtifacts) -> 
             "run": metadata.to_dict(),
             "rows": {
                 "total": int(len(artifacts.dataset.features)),
-                "train": int(
-                    config.split.train_mask(artifacts.dataset.features.index).sum()
-                ),
-                "test": int(
-                    config.split.test_mask(artifacts.dataset.features.index).sum()
-                ),
+                "train": int(config.split.train_mask(artifacts.dataset.features.index).sum()),
+                "test": int(config.split.test_mask(artifacts.dataset.features.index).sum()),
             },
             "outputs": {
                 "features": str(output_path),
@@ -248,9 +238,7 @@ def persist_artifacts(config: FeatureRunConfig, artifacts: FeatureArtifacts) -> 
             },
         }
         metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def load_feature_config(path: Path | None) -> FeatureRunConfig:
