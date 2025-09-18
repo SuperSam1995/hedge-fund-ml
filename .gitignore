@@ -16,8 +16,10 @@ data/interim/
 /models/
 reports/figures/*
 !reports/figures/.gitkeep
-reports/metrics/
-reports/metadata/
+reports/metrics/*
+!reports/metrics/.gitkeep
+reports/metadata/*
+!reports/metadata/.gitkeep
 reports/_tmp_*.ipynb
 reports/final_report_*.html
 
