@@ -10,8 +10,6 @@ from typing import cast
 import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Field, ValidationError
-
 from eval import (
     annualised_return,
     annualised_volatility,
@@ -23,6 +21,7 @@ from eval import (
     turnover,
 )
 from hedge_fund_ml import collect_run_metadata
+from pydantic import BaseModel, Field, ValidationError
 from report import metrics_table
 
 __all__ = [

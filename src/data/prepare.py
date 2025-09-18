@@ -12,9 +12,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Field
-
 from hedge_fund_ml.data import DataRegistry
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

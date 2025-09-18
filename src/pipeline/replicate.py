@@ -9,10 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Field, ValidationError
-
 from features import HKSpanModel
 from hedge_fund_ml import collect_run_metadata
+from pydantic import BaseModel, Field, ValidationError
 
 from .features import (
     FeatureArtifacts,
