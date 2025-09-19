@@ -13,10 +13,11 @@ from replicate.decoder import WeightDecoder
 def test_weight_decoder_closed_form() -> None:
     rhat = np.array([0.01, 0.02], dtype=float)
     target = 0.05
-    decoder = WeightDecoder(leverage=10.0, lambda_to=0.0, lambda_l2=0.0, long_only=False)
+    ridge = 1e-3
+    decoder = WeightDecoder(leverage=10.0, lambda_to=0.0, lambda_l2=ridge, long_only=False)
     result = decoder.solve_once(rhat, target)
 
-    expected = target * rhat / np.dot(rhat, rhat)
+    expected = target * rhat / (np.dot(rhat, rhat) + ridge)
     np.testing.assert_allclose(result.weights, expected, atol=1e-6)
 
 
