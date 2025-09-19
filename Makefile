@@ -45,3 +45,15 @@ report:
 
 reproduce:
 	$(PYTHON_DL) -m hedge_fund_ml.cli reproduce
+
+train_itrafo:
+	uv run --group dev --group deep-learning-torch python -m scripts.train_transformer --config configs/transformer.yaml
+
+replicate_itrafo:
+	uv run --group dev python -m scripts.replicate_itrafo --config configs/replicate_itrafo.yaml
+
+eval_itrafo:
+	uv run --group dev python -m scripts.eval --config configs/eval_itrafo.yaml
+
+report_itrafo:
+	$(MAKE) eval_itrafo && $(MAKE) report
