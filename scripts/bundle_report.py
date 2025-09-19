@@ -13,15 +13,22 @@ from typing import Any
 
 import pandas as pd
 from jinja2 import Environment, Template
-from matplotlib import pyplot as plt
 
 from hedge_fund_ml import collect_run_metadata
+from pipeline.evaluate import EvaluationConfig, run_evaluation
+from report import (
+    build_metrics_summary,
+    export_metrics_long,
+    export_returns_long,
+    export_weights_long,
+    plot_cumulative,
+    plot_rolling_te,
+    plot_turnover,
+)
 
-DEFAULT_METRICS_PATH = Path("reports/metrics_latest.json")
-DEFAULT_METRICS_SUMMARY_PATH = Path("reports/metrics_summary.json")
-DEFAULT_FIGURE_DIR = Path("reports/figures")
 DEFAULT_CONFIG_DIR = Path("configs")
 DEFAULT_PACKAGES = ("numpy", "pandas", "matplotlib", "jinja2")
+DEFAULT_EVAL_CONFIG = Path("configs/eval.yaml")
 
 INDEX_TEMPLATE = """
 # Research bundle — {{ run_id }}
@@ -100,6 +107,11 @@ def _summarise_entry(kind: str, path: Path) -> tuple[str, str]:
             "Index page",
             "Markdown overview summarising key metrics and bundle contents.",
         )
+    if kind == "summary":
+        return (
+            "Metrics summary",
+            "Aggregated statistics saved as metrics_summary.json.",
+        )
     if kind == "table":
         return (f"Table: {stem}", f"Tabular data exported as {ext_label} {path.name}.")
     if kind == "figure":
@@ -117,6 +129,7 @@ class BundleResult:
     manifest: Path
     context: Path
     index: Path
+    metrics_summary: Path
     tables: Sequence[Path]
     figures: Sequence[Path]
     configs: Sequence[Path]
@@ -136,6 +149,7 @@ class BundleResult:
             _entry("context", self.context),
             _entry("index", self.index),
         ]
+        paths.append(_entry("summary", self.metrics_summary))
         paths.extend(_entry("table", path) for path in self.tables)
         paths.extend(_entry("figure", path) for path in self.figures)
         paths.extend(_entry("config", path) for path in self.configs)
@@ -151,22 +165,10 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Destination directory for the bundle (e.g. reports/bundle/2023-01-01T0000Z)",
     )
     parser.add_argument(
-        "--metrics",
+        "--eval-config",
         type=Path,
-        default=DEFAULT_METRICS_PATH,
-        help=f"Metrics JSON path (default: {DEFAULT_METRICS_PATH})",
-    )
-    parser.add_argument(
-        "--metrics-summary",
-        type=Path,
-        default=DEFAULT_METRICS_SUMMARY_PATH,
-        help=f"Metrics summary JSON path (default: {DEFAULT_METRICS_SUMMARY_PATH})",
-    )
-    parser.add_argument(
-        "--figures",
-        type=Path,
-        default=DEFAULT_FIGURE_DIR,
-        help=f"Directory with source figures (default: {DEFAULT_FIGURE_DIR})",
+        default=DEFAULT_EVAL_CONFIG,
+        help=f"Evaluation config used to locate artefacts (default: {DEFAULT_EVAL_CONFIG})",
     )
     parser.add_argument(
         "--configs",
@@ -175,12 +177,6 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=f"Directory containing configuration YAML files (default: {DEFAULT_CONFIG_DIR})",
     )
     return parser.parse_args(argv)
-
-
-def _load_metrics(path: Path) -> dict[str, float]:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -232,52 +228,143 @@ def _summarise_metrics(summary: dict[str, Any]) -> list[dict[str, str]]:
     return quick_stats
 
 
-def _export_tables(metrics: dict[str, float], destination: Path) -> list[Path]:
-    destination.mkdir(parents=True, exist_ok=True)
-    if not metrics:
-        empty = destination / "metrics.csv"
-        pd.DataFrame(columns=["metric", "value"]).to_csv(empty, index=False)
-        return [empty]
-    frame = pd.DataFrame([metrics])
-    tidy = frame.melt(var_name="metric", value_name="value")
-    table_path = destination / "metrics.csv"
-    tidy.to_csv(table_path, index=False)
-    return [table_path]
+def _ensure_evaluation_outputs(config: EvaluationConfig) -> None:
+    if config.output.metrics_csv.exists():
+        return
+    run_evaluation(config)
 
 
-def _render_figures(metrics: dict[str, float], destination: Path, sources: Path) -> list[Path]:
-    destination.mkdir(parents=True, exist_ok=True)
-    created: list[Path] = []
-    if not metrics:
-        fallback = destination / "placeholder.png"
-        fig, ax = plt.subplots(figsize=(4, 3))
-        ax.text(0.5, 0.5, "No metrics", ha="center", va="center")
-        ax.axis("off")
-        fig.tight_layout()
-        fig.savefig(fallback, dpi=200)
-        plt.close(fig)
-        created.append(fallback)
+def _load_metrics_frame(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"Metrics CSV not found: {path}")
+    frame = pd.read_csv(path, index_col=0)
+    frame.index = frame.index.rename(frame.index.name or "series")
+    return frame
+
+
+def _load_panel(path: Path) -> pd.DataFrame:
+    try:
+        frame = pd.read_csv(path, index_col=0, parse_dates=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Panel data not found: {path}") from exc
+    if frame.empty:
+        return frame
+    first_column = frame.columns[0]
+    if isinstance(first_column, str) and "__" in first_column:
+        splits = [str(col).split("__") for col in frame.columns]
+        width = max(len(parts) for parts in splits)
+        padded = [parts + [None] * (width - len(parts)) for parts in splits]
+        arrays = [list(level) for level in zip(*padded, strict=False)]
+        names = ["series", *[f"level_{idx}" for idx in range(1, width)]]
+        frame.columns = pd.MultiIndex.from_arrays(arrays, names=names)
+    return frame
+
+
+def _build_returns_panel(panel: pd.DataFrame) -> pd.DataFrame:
+    series_frames: dict[str, pd.DataFrame] = {}
+    column_map = {
+        "target": "target",
+        "replica": "hk_prediction",
+        "residual": "hk_residual",
+    }
+    for label, column in column_map.items():
+        if isinstance(panel.columns, pd.MultiIndex):
+            try:
+                subset = panel.xs(column, axis=1, level=0)
+            except KeyError:
+                continue
+        else:
+            if column not in panel.columns:
+                continue
+            subset = panel[[column]]
+        if isinstance(subset, pd.Series):
+            subset = subset.to_frame(name=column)
+        numeric = subset.apply(pd.to_numeric, errors="coerce").dropna(how="all")
+        if numeric.empty:
+            continue
+        series_frames[label] = numeric.astype(float)
+
+    if not series_frames:
+        raise ValueError("No return series available in panel")
+
+    returns_panel = pd.concat(series_frames, axis=1)
+    default_names = [
+        "series",
+        *[f"level_{idx}" for idx in range(1, returns_panel.columns.nlevels)],
+    ]
+    column_names = [
+        name if name is not None else default_names[idx]
+        for idx, name in enumerate(returns_panel.columns.names)
+    ]
+    returns_panel.columns = returns_panel.columns.set_names(column_names)
+    return returns_panel
+
+
+def _load_weights_frame(path: Path) -> pd.DataFrame:
+    try:
+        weights = pd.read_csv(path, index_col=0, parse_dates=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Weights data not found: {path}") from exc
+    if weights.empty:
+        return weights
+    first_column = weights.columns[0]
+    if isinstance(first_column, str) and "__" in first_column:
+        splits = [str(col).split("__") for col in weights.columns]
+        width = max(len(parts) for parts in splits)
+        padded = [parts + [None] * (width - len(parts)) for parts in splits]
+        arrays = [list(level) for level in zip(*padded, strict=False)]
+        names = [f"level_{idx}" for idx in range(width)]
+        weights.columns = pd.MultiIndex.from_arrays(arrays, names=names)
+    return weights.astype(float)
+
+
+def _collapse_returns_for_plots(returns_panel: pd.DataFrame) -> pd.DataFrame:
+    if returns_panel.empty:
+        return returns_panel
+    if isinstance(returns_panel.columns, pd.MultiIndex):
+        collapsed: dict[str, pd.Series] = {}
+        for name in returns_panel.columns.get_level_values(0).unique():
+            subset = returns_panel.xs(name, axis=1, level=0)
+            if isinstance(subset, pd.Series):
+                series = subset
+            else:
+                series = subset.mean(axis=1)
+            collapsed[str(name)] = series.rename("return")
+        collapsed_frame = pd.concat(collapsed, axis=1)
+        collapsed_frame.columns = collapsed_frame.columns.set_names(["series", "metric"])
+        return collapsed_frame
+    frame = returns_panel.copy()
+    frame.columns = pd.MultiIndex.from_product(
+        [frame.columns.astype(str), ["return"]],
+        names=["series", "metric"],
+    )
+    return frame
+
+
+def _strategy_labels(returns_frame: pd.DataFrame, weights: pd.DataFrame) -> list[str]:
+    if returns_frame.empty:
+        return []
+    if isinstance(returns_frame.columns, pd.MultiIndex):
+        returns_labels = {
+            str(label)
+            for label in returns_frame.columns.get_level_values(0)
+            if str(label) != "target"
+        }
     else:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        names = list(metrics)
-        values = [metrics[name] for name in names]
-        ax.bar(names, values)
-        ax.set_title("Key metrics")
-        ax.set_ylabel("Value")
-        ax.set_xlabel("Metric")
-        ax.set_ylim(bottom=0)
-        ax.tick_params(axis="x", rotation=30)
-        fig.tight_layout()
-        figure_path = destination / "metrics.png"
-        fig.savefig(figure_path, dpi=200)
-        plt.close(fig)
-        created.append(figure_path)
-    if sources.exists():
-        for path in sorted(sources.glob("*.png")):
-            target = destination / path.name
-            shutil.copy2(path, target)
-            created.append(target)
-    return created
+        returns_labels = {str(label) for label in returns_frame.columns if str(label) != "target"}
+
+    if weights.empty:
+        return sorted(returns_labels)
+
+    if isinstance(weights.columns, pd.MultiIndex):
+        weight_labels = {str(label) for label in weights.columns.get_level_values(0)}
+    else:
+        weight_labels = {str(label) for label in weights.columns}
+
+    intersect = returns_labels.intersection(weight_labels)
+    if intersect:
+        return sorted(intersect)
+    return sorted(returns_labels)
 
 
 def _copy_configs(source: Path, destination: Path) -> list[Path]:
@@ -303,19 +390,8 @@ def _write_manifest(root: Path, run_id: str, entries: Iterable[ManifestEntry]) -
     return manifest_path
 
 
-def _write_context(
-    root: Path,
-    run_id: str,
-    metadata: dict[str, object],
-    metrics: dict[str, float],
-) -> Path:
+def _write_context(root: Path, payload: dict[str, Any]) -> Path:
     context_path = root / "context.json"
-    payload = {
-        "run_id": run_id,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "metadata": metadata,
-        "metrics": metrics,
-    }
     context_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return context_path
 
@@ -367,36 +443,137 @@ def _prepare_template() -> Template:
     return env.from_string(INDEX_TEMPLATE)
 
 
-def bundle(
-    out: Path,
-    metrics_path: Path,
-    figure_dir: Path,
-    config_dir: Path,
-    metrics_summary_path: Path,
-) -> BundleResult:
+def _build_context_payload(
+    run_id: str,
+    metadata: dict[str, Any],
+    metrics_frame: pd.DataFrame,
+    eval_config: EvaluationConfig,
+    eval_config_path: Path,
+    summary_path: Path,
+    tables: Sequence[Path],
+    figures: Sequence[Path],
+    configs: Sequence[Path],
+    bundle_root: Path,
+) -> dict[str, Any]:
+    def _rel(path: Path) -> str:
+        return str(path.relative_to(bundle_root))
+
+    metrics_payload = metrics_frame.to_dict(orient="index")
+    artefacts = {
+        "metrics_summary": _rel(summary_path),
+        "tables": [_rel(path) for path in tables],
+        "figures": [_rel(path) for path in figures],
+        "configs": [_rel(path) for path in configs],
+    }
+
+    evaluation_payload = {
+        "config_path": str(eval_config_path),
+        "data": {
+            "panel": str(eval_config.data.panel),
+            "weights": str(eval_config.data.weights),
+        },
+        "outputs": {
+            "metrics_csv": str(eval_config.output.metrics_csv),
+            "metrics_json": str(eval_config.output.metrics_json),
+            "metrics_summary": str(eval_config.output.metrics_summary),
+            "figure": str(eval_config.output.figure),
+        },
+    }
+
+    return {
+        "run_id": run_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata,
+        "evaluation": evaluation_payload,
+        "metrics": metrics_payload,
+        "artefacts": artefacts,
+    }
+
+
+def bundle(out: Path, eval_config_path: Path, config_dir: Path) -> BundleResult:
     out.mkdir(parents=True, exist_ok=True)
     run_id = out.name
-    metrics = _load_metrics(metrics_path)
-    tables = _export_tables(metrics, out / "tables")
-    figures = _render_figures(metrics, out / "figures", figure_dir)
+
+    eval_config = EvaluationConfig.from_yaml(eval_config_path)
+    _ensure_evaluation_outputs(eval_config)
+
+    metrics_frame = _load_metrics_frame(eval_config.output.metrics_csv)
+    panel = _load_panel(eval_config.data.panel)
+    returns_panel = _build_returns_panel(panel)
+    weights_frame = _load_weights_frame(eval_config.data.weights)
+
+    tables: list[Path] = []
+    tables.append(export_metrics_long(metrics_frame, out))
+    tables.append(export_returns_long(returns_panel, out))
+    weight_tables = export_weights_long(weights_frame, out)
+    tables.extend(weight_tables.values())
+
+    returns_for_plots = _collapse_returns_for_plots(returns_panel)
+    strategies = _strategy_labels(returns_for_plots, weights_frame)
+    figures: list[Path] = []
+    for strategy in strategies:
+        try:
+            figures.append(plot_cumulative(returns_for_plots, strategy, out))
+        except (KeyError, ValueError):
+            continue
+        try:
+            figures.append(plot_rolling_te(returns_for_plots, strategy, out_dir=out))
+        except (KeyError, ValueError):
+            pass
+        try:
+            figures.append(plot_turnover(weights_frame, strategy, out))
+        except (KeyError, ValueError):
+            pass
+
+    metrics_long = (
+        metrics_frame.copy()
+        .rename_axis(index="series")
+        .reset_index()
+        .melt(id_vars="series", var_name="metric", value_name="value")
+        .sort_values(["series", "metric"], ignore_index=True)
+    )
+    metrics_summary_payload = build_metrics_summary(metrics_long)
+    metrics_summary_path = out / "metrics_summary.json"
+    metrics_summary_path.write_text(
+        json.dumps(metrics_summary_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
     configs = _copy_configs(config_dir, out / "configs")
+
     metadata = collect_run_metadata(seed=0, packages=DEFAULT_PACKAGES)
     metadata_dict = metadata.to_dict()
-    context = _write_context(out, run_id, metadata_dict, metrics)
+
     template = _prepare_template()
     manifest_path = out / "manifest.json"
+    context_path = out / "context.json"
+
     bundle_layout = BundleResult(
         manifest=manifest_path,
-        context=context,
+        context=context_path,
         index=out / "index.md",
+        metrics_summary=metrics_summary_path,
         tables=tables,
         figures=figures,
         configs=configs,
     )
+
     manifest = _write_manifest(out, run_id, bundle_layout.entries(out))
     manifest_payload = _load_json(manifest)
-    context_payload = _load_json(context)
-    metrics_summary_payload = _load_json(metrics_summary_path)
+
+    context_payload = _build_context_payload(
+        run_id,
+        metadata_dict,
+        metrics_frame,
+        eval_config,
+        eval_config_path,
+        metrics_summary_path,
+        tables,
+        figures,
+        configs,
+        out,
+    )
+
     index = _render_index(
         template,
         out,
@@ -404,10 +581,14 @@ def bundle(
         context=context_payload,
         metrics_summary=metrics_summary_payload,
     )
+
+    context = _write_context(out, context_payload)
+
     return BundleResult(
         manifest=manifest,
         context=context,
         index=index,
+        metrics_summary=metrics_summary_path,
         tables=tables,
         figures=figures,
         configs=configs,
@@ -418,10 +599,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = _parse_args(argv)
     bundle(
         args.out,
-        args.metrics,
-        args.figures,
+        args.eval_config,
         args.configs,
-        args.metrics_summary,
     )
 
 
