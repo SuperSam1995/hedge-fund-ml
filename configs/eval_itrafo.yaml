@@ -4,6 +4,7 @@ data:
 output:
   metrics_csv: reports/metrics/itrafo_metrics.csv
   metrics_json: reports/metrics/itrafo_metrics.json
+  metrics_summary: reports/metrics/itrafo_metrics_summary.json
   figure: reports/figures/replication_cumulative_itrafo.png
   metadata: reports/metadata/itrafo_evaluation.json
 settings:

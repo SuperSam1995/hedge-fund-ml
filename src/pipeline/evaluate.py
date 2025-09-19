@@ -10,6 +10,8 @@ from typing import cast
 import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
+from pydantic import BaseModel, Field, ValidationError
+
 from eval import (
     annualised_return,
     annualised_volatility,
@@ -21,8 +23,8 @@ from eval import (
     turnover,
 )
 from hedge_fund_ml import collect_run_metadata
-from pydantic import BaseModel, Field, ValidationError
 from report import (
+    build_metrics_summary,
     export_metrics_long,
     export_returns_long,
     export_weights_long,
@@ -43,6 +45,7 @@ class EvaluationOutputConfig(BaseModel):
 
     metrics_csv: Path
     metrics_json: Path
+    metrics_summary: Path
     figure: Path
     metadata: Path | None = None
 
@@ -257,6 +260,21 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
     metrics_dict = _compute_metrics(returns_panel, weights_float, config.settings)
     metrics_frame = metrics_table(metrics_dict)
     _persist_metrics(config, metrics_frame)
+
+    if config.output.metrics_summary is not None:
+        metrics_long = (
+            metrics_frame.copy()
+            .rename_axis(index="series")
+            .reset_index()
+            .melt(id_vars="series", var_name="metric", value_name="value")
+            .sort_values(["series", "metric"], ignore_index=True)
+        )
+        summary = build_metrics_summary(metrics_long)
+        config.output.metrics_summary.parent.mkdir(parents=True, exist_ok=True)
+        config.output.metrics_summary.write_text(
+            json.dumps(summary, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
     cumulative = build_cumulative_returns(panel)
     _persist_figure(config, cumulative)
