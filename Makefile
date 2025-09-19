@@ -1,10 +1,11 @@
-.PHONY: setup lint test data features train_ae train_gan replicate eval report reproduce
+.PHONY: setup lint test data features train_ae train_gan replicate eval report reproduce bundle
 
 UV ?= uv
 PYTHON := $(UV) run --group dev python
 PYTHON_DL := $(UV) run --group dev --extra deep-learning python
 REPORT_DATE := $(shell date +%Y-%m-%d)
 REPORT_NOTEBOOK := notebooks/final_report.py  # text notebook (py:percent)
+bundle_dir := $(shell date -u +reports/bundle/%Y-%m-%dT%H%MZ)
 
 setup:
 	$(UV) sync --group dev
@@ -45,6 +46,10 @@ report:
 
 reproduce:
 	$(PYTHON_DL) -m hedge_fund_ml.cli reproduce
+
+bundle:
+	uv run --group dev python -m scripts.bundle_report --out $(bundle_dir)
+	@echo "Bundle written to $(bundle_dir)"
 
 train_itrafo:
 	uv run --group dev --group deep-learning-torch python -m scripts.train_transformer --config configs/transformer.yaml
