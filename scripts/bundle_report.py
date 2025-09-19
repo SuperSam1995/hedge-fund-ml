@@ -9,6 +9,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from jinja2 import Environment, Template
@@ -17,6 +18,7 @@ from matplotlib import pyplot as plt
 from hedge_fund_ml import collect_run_metadata
 
 DEFAULT_METRICS_PATH = Path("reports/metrics_latest.json")
+DEFAULT_METRICS_SUMMARY_PATH = Path("reports/metrics_summary.json")
 DEFAULT_FIGURE_DIR = Path("reports/figures")
 DEFAULT_CONFIG_DIR = Path("configs")
 DEFAULT_PACKAGES = ("numpy", "pandas", "matplotlib", "jinja2")
@@ -24,22 +26,44 @@ DEFAULT_PACKAGES = ("numpy", "pandas", "matplotlib", "jinja2")
 INDEX_TEMPLATE = """
 # Research bundle — {{ run_id }}
 
-Generated: {{ created_at }} UTC  \
-Source commit: {{ metadata.git_commit[:7] }}{% if metadata.git_dirty %} (dirty){% endif %}
+Manifest created: {{ manifest_created_at }} UTC  \
+Context generated: {{ context_generated_at }} UTC  \
+Metrics summary generated: {{ metrics_generated_at }} UTC  \
+Source commit: {{ git_commit }}{% if git_dirty %} (dirty){% endif %}
 
-## Metrics snapshot
+## Quick stats
 
-| metric | value |
-|--------|-------|
-{% for metric, value in metrics.items() -%}
-| {{ metric }} | {{ "%.4g"|format(value) }} |
+{% if quick_stats %}
+| metric | best | worst | mean | median | std |
+|--------|------|-------|------|--------|-----|
+{% for stat in quick_stats -%}
+| {{stat.title}} | {{stat.best}} | {{stat.worst}} | {{stat.mean}} | {{stat.median}} | {{stat.std}} |
 {% endfor %}
+{% else %}
+_No metrics available._
+{% endif %}
 
-## Contents
+## Strategies
 
-- Configuration files: {{ config_count }}
-- Tables: {{ table_count }}
-- Figures: {{ figure_count }}
+{% if strategies %}
+{% for strategy in strategies -%}
+- {{ strategy }}
+{% endfor %}
+{% else %}
+_No strategies recorded._
+{% endif %}
+
+## Artefacts
+
+{% if artifacts %}
+{% for artifact in artifacts -%}
+- **{{ artifact.caption }}**  \
+  Path: `{{ artifact.path }}`  \
+  {{ artifact.description }}
+{% endfor %}
+{% else %}
+_No artefacts recorded._
+{% endif %}
 
 """
 
@@ -133,6 +157,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=f"Metrics JSON path (default: {DEFAULT_METRICS_PATH})",
     )
     parser.add_argument(
+        "--metrics-summary",
+        type=Path,
+        default=DEFAULT_METRICS_SUMMARY_PATH,
+        help=f"Metrics summary JSON path (default: {DEFAULT_METRICS_SUMMARY_PATH})",
+    )
+    parser.add_argument(
         "--figures",
         type=Path,
         default=DEFAULT_FIGURE_DIR,
@@ -151,6 +181,55 @@ def _load_metrics(path: Path) -> dict[str, float]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _format_float(value: Any) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value):.4g}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _format_series_stat(entry: dict[str, Any] | None) -> str:
+    if not entry:
+        return "n/a"
+    series = entry.get("series")
+    value = entry.get("value")
+    if series is None:
+        return "n/a"
+    formatted = _format_float(value)
+    return f"{series} ({formatted})" if formatted != "n/a" else str(series)
+
+
+def _summarise_metrics(summary: dict[str, Any]) -> list[dict[str, str]]:
+    metrics = summary.get("metrics", {})
+    quick_stats: list[dict[str, str]] = []
+    for name, payload in metrics.items():
+        if not isinstance(payload, dict):
+            continue
+        title = payload.get("title") or _format_label(name)
+        best = _format_series_stat(payload.get("best"))
+        worst = _format_series_stat(payload.get("worst"))
+        quick_stats.append(
+            {
+                "name": str(name),
+                "title": str(title),
+                "best": best,
+                "worst": worst,
+                "mean": _format_float(payload.get("mean")),
+                "median": _format_float(payload.get("median")),
+                "std": _format_float(payload.get("std")),
+            }
+        )
+    return quick_stats
 
 
 def _export_tables(metrics: dict[str, float], destination: Path) -> list[Path]:
@@ -245,23 +324,39 @@ def _render_index(
     template: Template,
     destination: Path,
     *,
-    run_id: str,
-    created_at: str,
-    metadata: dict[str, object],
-    metrics: dict[str, float],
-    config_count: int,
-    table_count: int,
-    figure_count: int,
+    manifest: dict[str, Any],
+    context: dict[str, Any],
+    metrics_summary: dict[str, Any],
 ) -> Path:
     index_path = destination / "index.md"
+    metadata = context.get("metadata", {}) if isinstance(context, dict) else {}
+    git_commit = str(metadata.get("git_commit", "unknown"))
+    git_dirty = bool(metadata.get("git_dirty", False))
+    manifest_created_at = str(manifest.get("created_at", "unknown"))
+    context_generated_at = str(context.get("generated_at", "unknown"))
+    metrics_generated_at = str(metrics_summary.get("generated_at", "unknown"))
+    run_id = (
+        str(manifest.get("run_id"))
+        if manifest.get("run_id") is not None
+        else str(context.get("run_id", "unknown"))
+    )
+    artifacts = manifest.get("artifacts", []) if isinstance(manifest, dict) else []
+    quick_stats = _summarise_metrics(metrics_summary)
+    series_mapping = metrics_summary.get("series", {})
+    if isinstance(series_mapping, dict):
+        strategies = sorted(str(name) for name in series_mapping)
+    else:
+        strategies = []
     payload = template.render(
         run_id=run_id,
-        created_at=created_at,
-        metadata=metadata,
-        metrics=metrics,
-        config_count=config_count,
-        table_count=table_count,
-        figure_count=figure_count,
+        manifest_created_at=manifest_created_at,
+        context_generated_at=context_generated_at,
+        metrics_generated_at=metrics_generated_at,
+        git_commit=git_commit,
+        git_dirty=git_dirty,
+        quick_stats=quick_stats,
+        strategies=strategies,
+        artifacts=artifacts,
     )
     index_path.write_text(payload, encoding="utf-8")
     return index_path
@@ -272,7 +367,13 @@ def _prepare_template() -> Template:
     return env.from_string(INDEX_TEMPLATE)
 
 
-def bundle(out: Path, metrics_path: Path, figure_dir: Path, config_dir: Path) -> BundleResult:
+def bundle(
+    out: Path,
+    metrics_path: Path,
+    figure_dir: Path,
+    config_dir: Path,
+    metrics_summary_path: Path,
+) -> BundleResult:
     out.mkdir(parents=True, exist_ok=True)
     run_id = out.name
     metrics = _load_metrics(metrics_path)
@@ -281,29 +382,28 @@ def bundle(out: Path, metrics_path: Path, figure_dir: Path, config_dir: Path) ->
     configs = _copy_configs(config_dir, out / "configs")
     metadata = collect_run_metadata(seed=0, packages=DEFAULT_PACKAGES)
     metadata_dict = metadata.to_dict()
-    created_at = datetime.now(timezone.utc).isoformat()
     context = _write_context(out, run_id, metadata_dict, metrics)
     template = _prepare_template()
-    index = _render_index(
-        template,
-        out,
-        run_id=run_id,
-        created_at=created_at,
-        metadata=metadata_dict,
-        metrics=metrics,
-        config_count=len(configs),
-        table_count=len(tables),
-        figure_count=len(figures),
-    )
-    bundle_paths = BundleResult(
-        manifest=out / "manifest.json",
+    manifest_path = out / "manifest.json"
+    bundle_layout = BundleResult(
+        manifest=manifest_path,
         context=context,
-        index=index,
+        index=out / "index.md",
         tables=tables,
         figures=figures,
         configs=configs,
     )
-    manifest = _write_manifest(out, run_id, bundle_paths.entries(out))
+    manifest = _write_manifest(out, run_id, bundle_layout.entries(out))
+    manifest_payload = _load_json(manifest)
+    context_payload = _load_json(context)
+    metrics_summary_payload = _load_json(metrics_summary_path)
+    index = _render_index(
+        template,
+        out,
+        manifest=manifest_payload,
+        context=context_payload,
+        metrics_summary=metrics_summary_payload,
+    )
     return BundleResult(
         manifest=manifest,
         context=context,
@@ -316,7 +416,13 @@ def bundle(out: Path, metrics_path: Path, figure_dir: Path, config_dir: Path) ->
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parse_args(argv)
-    bundle(args.out, args.metrics, args.figures, args.configs)
+    bundle(
+        args.out,
+        args.metrics,
+        args.figures,
+        args.configs,
+        args.metrics_summary,
+    )
 
 
 if __name__ == "__main__":
