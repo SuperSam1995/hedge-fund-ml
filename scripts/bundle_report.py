@@ -48,7 +48,44 @@ Source commit: {{ metadata.git_commit[:7] }}{% if metadata.git_dirty %} (dirty){
 class ManifestEntry:
     kind: str
     path: str
-    description: str | None = None
+    caption: str
+    description: str
+
+
+def _format_label(text: str) -> str:
+    cleaned = text.replace("_", " ").replace("-", " ").strip()
+    return cleaned.title() if cleaned else "Artifact"
+
+
+def _summarise_entry(kind: str, path: Path) -> tuple[str, str]:
+    stem = _format_label(path.stem)
+    suffix = path.suffix.lstrip(".").upper()
+    ext_label = f"{suffix} file" if suffix else "file"
+    if kind == "manifest":
+        return (
+            "Bundle manifest",
+            "Machine-readable inventory of all bundle artefacts.",
+        )
+    if kind == "context":
+        return (
+            "Execution context",
+            "Run metadata including package versions and git state.",
+        )
+    if kind == "index":
+        return (
+            "Index page",
+            "Markdown overview summarising key metrics and bundle contents.",
+        )
+    if kind == "table":
+        return (f"Table: {stem}", f"Tabular data exported as {ext_label} {path.name}.")
+    if kind == "figure":
+        return (f"Figure: {stem}", f"Static visualisation saved to {path.name}.")
+    if kind == "config":
+        return (
+            f"Config: {stem}",
+            "YAML configuration used to parameterise the run.",
+        )
+    return (stem, f"Bundle artefact stored in {path.name}.")
 
 
 @dataclass
@@ -61,20 +98,23 @@ class BundleResult:
     configs: Sequence[Path]
 
     def entries(self, root: Path) -> list[ManifestEntry]:
+        def _entry(kind: str, path: Path) -> ManifestEntry:
+            caption, description = _summarise_entry(kind, path)
+            return ManifestEntry(
+                kind=kind,
+                path=str(path.relative_to(root)),
+                caption=caption,
+                description=description,
+            )
+
         paths: list[ManifestEntry] = [
-            ManifestEntry("manifest", str(self.manifest.relative_to(root))),
-            ManifestEntry("context", str(self.context.relative_to(root))),
-            ManifestEntry("index", str(self.index.relative_to(root))),
+            _entry("manifest", self.manifest),
+            _entry("context", self.context),
+            _entry("index", self.index),
         ]
-        paths.extend(
-            ManifestEntry("table", str(path.relative_to(root))) for path in self.tables
-        )
-        paths.extend(
-            ManifestEntry("figure", str(path.relative_to(root))) for path in self.figures
-        )
-        paths.extend(
-            ManifestEntry("config", str(path.relative_to(root))) for path in self.configs
-        )
+        paths.extend(_entry("table", path) for path in self.tables)
+        paths.extend(_entry("figure", path) for path in self.figures)
+        paths.extend(_entry("config", path) for path in self.configs)
         return paths
 
 

@@ -4,6 +4,7 @@ data:
 output:
   metrics_csv: reports/metrics/replication_metrics.csv
   metrics_json: reports/metrics/replication_metrics.json
+  metrics_summary: reports/metrics/replication_metrics_summary.json
   figure: reports/figures/replication_cumulative.png
   metadata: reports/metadata/evaluation.json
 settings:
