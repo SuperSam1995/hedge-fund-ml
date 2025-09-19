@@ -55,3 +55,27 @@ PY
             --output reports/final_report_smoke.html
       - name: Assert HTML produced
         run: test -f reports/final_report_smoke.html
+
+  bundle-smoke:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.11"
+      - name: Sync dependencies
+        run: uv sync --group dev
+      - name: Reproduce CPU pipeline
+        run: make reproduce_cpu
+      - name: Build bundle
+        run: make bundle
+      - name: Assert bundle index
+        run: test -f $(ls -td reports/bundle/* | head -1)/index.md
+      - name: Capture bundle path
+        run: echo "BUNDLE_DIR=$(ls -td reports/bundle/* | head -1)" >> "$GITHUB_ENV"
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle
+          path: ${{ env.BUNDLE_DIR }}
