@@ -22,7 +22,12 @@ from eval import (
 )
 from hedge_fund_ml import collect_run_metadata
 from pydantic import BaseModel, Field, ValidationError
-from report import metrics_table
+from report import (
+    export_metrics_long,
+    export_returns_long,
+    export_weights_long,
+    metrics_table,
+)
 
 __all__ = [
     "EvaluationConfig",
@@ -142,21 +147,45 @@ def build_cumulative_returns(panel: pd.DataFrame) -> pd.DataFrame:
     return cumulative
 
 
+def _build_returns_panel(panel: pd.DataFrame) -> pd.DataFrame:
+    series_frames: dict[str, pd.DataFrame] = {}
+    for label, column in {
+        "target": "target",
+        "replica": "hk_prediction",
+        "residual": "hk_residual",
+    }.items():
+        try:
+            series_frames[label] = _to_float_frame(_select_series(panel, column))
+        except (KeyError, ValueError):
+            continue
+
+    if not series_frames:
+        raise ValueError("No return series available in panel")
+
+    returns_panel = pd.concat(series_frames, axis=1)
+    default_names = ["series", *[f"level_{idx}" for idx in range(1, returns_panel.columns.nlevels)]]
+    column_names = [
+        name if name is not None else default_names[idx]
+        for idx, name in enumerate(returns_panel.columns.names)
+    ]
+    returns_panel.columns = returns_panel.columns.set_names(column_names)
+    return returns_panel
+
+
 def _compute_metrics(
-    panel: pd.DataFrame,
+    returns_panel: pd.DataFrame,
     weights: pd.DataFrame,
     settings: EvaluationSettings,
 ) -> dict[str, dict[str, float]]:
-    target = _to_float_frame(_select_series(panel, "target"))
-    replica = _to_float_frame(_select_series(panel, "hk_prediction"))
-    residual = _to_float_frame(_select_series(panel, "hk_residual"))
+    if not isinstance(returns_panel.columns, pd.MultiIndex):
+        raise ValueError("Expected return panel with MultiIndex columns")
 
     metrics: dict[str, dict[str, float]] = {}
-    for name, data in {
-        "target": target,
-        "replica": replica,
-        "residual": residual,
-    }.items():
+    for name in returns_panel.columns.get_level_values(0).unique():
+        data = returns_panel.xs(name, axis=1, level=0)
+        if isinstance(data, pd.Series):
+            data = data.to_frame(name=name)
+        data = _to_float_frame(data)
         for column in data.columns:
             series = data[column]
             key = f"{name}:{column}"
@@ -223,12 +252,22 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
         arrays = [list(level) for level in zip(*padded, strict=False)]
         names = [f"level_{idx}" for idx in range(width)]
         weights.columns = pd.MultiIndex.from_arrays(arrays, names=names)
-    metrics_dict = _compute_metrics(panel, weights.astype(float), config.settings)
+    returns_panel = _build_returns_panel(panel)
+    weights_float = weights.astype(float)
+    metrics_dict = _compute_metrics(returns_panel, weights_float, config.settings)
     metrics_frame = metrics_table(metrics_dict)
     _persist_metrics(config, metrics_frame)
 
     cumulative = build_cumulative_returns(panel)
     _persist_figure(config, cumulative)
+
+    try:
+        tables_root = config.output.metrics_csv.parents[1]
+    except IndexError:
+        tables_root = config.output.metrics_csv.parent
+    export_metrics_long(metrics_frame, tables_root)
+    export_returns_long(returns_panel, tables_root)
+    export_weights_long(weights_float, tables_root)
 
     if config.output.metadata is not None:
         metadata = collect_run_metadata(0, config.packages)
