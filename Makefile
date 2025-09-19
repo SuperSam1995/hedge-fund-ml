@@ -57,3 +57,26 @@ eval_itrafo:
 
 report_itrafo:
 	$(MAKE) eval_itrafo && $(MAKE) report
+
+# ---------- CPU-only reproducible pipeline (no TF required) ----------
+METRICS_JSON := $(shell test -f reports/metrics_latest.json && echo reports/metrics_latest.json || ls -1t reports/metrics/*.json 2>/dev/null | head -n1)
+
+.PHONY: reproduce_cpu report_cpu open-report
+
+reproduce_cpu:
+	uv run --group dev python -m scripts.build_features --config configs/features.yaml
+	uv run --group dev python -m scripts.replicate     --config configs/replicate.yaml
+	uv run --group dev python -m scripts.eval          --config configs/eval.yaml
+	$(MAKE) report_cpu
+
+report_cpu:
+	@mkdir -p reports
+	uv run --group dev papermill notebooks/final_report.ipynb reports/_tmp.ipynb \
+	  -p metrics_path $(METRICS_JSON) \
+	  -p figures_dir reports/figures
+	uv run --group dev jupyter nbconvert --to html --no-input \
+	  --output-dir reports --output final_report.html reports/_tmp.ipynb
+	@echo "Report ready: reports/final_report.html"
+
+open-report:
+	open reports/final_report.html

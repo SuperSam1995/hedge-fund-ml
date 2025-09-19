@@ -47,3 +47,7 @@ reports/**/*.svg
 
 # notebooks are text-only; ipynb generated at runtime
 notebooks/**/*.ipynb
+
+logs/*.out
+logs/*.txt
+reports/_tmp*
