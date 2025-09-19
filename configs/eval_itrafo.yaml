@@ -1,10 +1,10 @@
 data:
-  panel: data/interim/features.csv
-  weights: data/interim/itrafo_weights.csv
+  panel: data/interim/replication_series_itrafo.csv
+  weights: data/interim/replication_weights_itrafo.csv
 output:
   metrics_csv: reports/metrics/itrafo_metrics.csv
   metrics_json: reports/metrics/itrafo_metrics.json
-  figure: reports/figures/itrafo_cumulative.png
+  figure: reports/figures/replication_cumulative_itrafo.png
   metadata: reports/metadata/itrafo_evaluation.json
 settings:
   periods_per_year: 12
