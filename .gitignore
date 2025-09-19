@@ -21,6 +21,7 @@ reports/metrics/*
 reports/metadata/*
 !reports/metadata/.gitkeep
 reports/_tmp_*.ipynb
+reports/_exec_*.ipynb
 reports/final_report_*.html
 
 # Node
