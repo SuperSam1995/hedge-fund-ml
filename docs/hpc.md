@@ -1,35 +1,30 @@
 # HPC Runbook (Slurm)
 
-## Python / env
-Baseline (CPU-only) works on Python **3.13+**:
+## Environment (CPU-only baseline)
 ```bash
 uv venv --python 3.13
 uv sync --group dev
 ```
 
-If you later train deep models (PyTorch), prefer 3.11 on HPC:
+## Submit baseline pipeline
 ```bash
-uv python install 3.11
-uv venv --python 3.11
-uv sync --group dev --group deep-learning-torch
-```
-
-Submit baseline pipeline (CPU)
 mkdir -p logs
 sbatch jobs/reproduce_cpu.sbatch
+```
 
-Monitor jobs
+## Monitor
+```bash
 squeue -u $USER
-tail -f logs/*.out
+tail -f logs/reproduce_*.out
+```
 
-Inputs & outputs
+## Inputs & Outputs
 
-Inputs: cleaned_data/factor_etf_data.csv, cleaned_data/hfd.csv (relative to repo).
+- **Inputs** (repo-relative): `cleaned_data/factor_etf_data.csv`, `cleaned_data/hfd.csv`
+- **Outputs**: `data/interim/*`, `reports/metrics/*`, `reports/figures/*`, `reports/final_report.html`
 
-Outputs:
-
-data/interim/*.csv (features/weights)
-
-reports/metrics/*.json|csv, reports/figures/*.png
-
-Final HTML: reports/final_report.html
+## Run locally (smoke test)
+```bash
+uv sync --group dev
+make reproduce_cpu
+```
