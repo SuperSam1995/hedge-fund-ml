@@ -29,6 +29,7 @@ dev = [
   "papermill",
   "jupytext",
   "nbconvert",
+  "ipykernel",
   "matplotlib",
   "pandas",
   "numpy",
