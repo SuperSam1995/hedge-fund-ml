@@ -64,7 +64,7 @@ report_itrafo:
 	$(MAKE) eval_itrafo && $(MAKE) report
 
 # ---------- CPU-only reproducible pipeline (no TF required) ----------
-METRICS_JSON := $(shell test -f reports/metrics_latest.json && echo reports/metrics_latest.json || ls -1t reports/metrics/*.json 2>/dev/null | head -n1)
+METRICS_JSON := $(shell ls -1t reports/metrics/*.json 2>/dev/null | head -n1)
 
 .PHONY: reproduce_cpu report_cpu open-report
 
@@ -76,6 +76,7 @@ reproduce_cpu:
 
 report_cpu:
 	@mkdir -p reports
+	uv run --group dev jupytext --to ipynb notebooks/final_report.py -o notebooks/final_report.ipynb
 	uv run --group dev papermill notebooks/final_report.ipynb reports/_tmp.ipynb \
 	  -p metrics_path $(METRICS_JSON) \
 	  -p figures_dir reports/figures
@@ -84,4 +85,4 @@ report_cpu:
 	@echo "Report ready: reports/final_report.html"
 
 open-report:
-	open reports/final_report.html
+	$(PYTHON) -c "import pathlib, webbrowser; webbrowser.open(pathlib.Path('reports/final_report.html').resolve().as_uri())"

@@ -213,7 +213,7 @@ def _compute_metrics(
                 ),
                 "omega": omega_ratio(series, threshold=settings.omega_threshold),
             }
-    metrics["turnover"] = {"value": turnover(weights)}
+    metrics["turnover"] = {"turnover": turnover(weights)}
     return metrics
 
 
