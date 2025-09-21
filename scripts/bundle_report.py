@@ -27,18 +27,20 @@ def main(out_dir: str):
     tabs = root / "tables"
     root.mkdir(parents=True, exist_ok=True)
 
-    tables_src = Path("reports/tables")
-    metrics = pd.read_csv(tables_src / "metrics_by_series.csv")
-    series = pd.read_csv(tables_src / "returns_long.csv", parse_dates=["date"])
-    weight_frames = [
-        pd.read_csv(path, parse_dates=["date"])
-        for path in sorted(tables_src.glob("weights_*.csv"))
-    ]
-    weights = (
-        pd.concat(weight_frames, ignore_index=True)
-        if weight_frames
-        else pd.DataFrame(columns=["date", "strategy", "ticker", "weight"])
-    )
+    metrics_src = Path("reports/metrics/replication_metrics.csv")
+    series_src = Path("reports/series/replication_series.csv")
+    weights_src = Path("data/interim/replication_weights.csv")
+
+    for path in (metrics_src, series_src, weights_src):
+        if not path.exists():
+            raise FileNotFoundError(f"Required artefact missing: {path}")
+
+    metrics = pd.read_csv(metrics_src)
+    series = pd.read_csv(series_src, parse_dates=["date"])
+    try:
+        weights = pd.read_csv(weights_src, parse_dates=["date"])
+    except pd.errors.EmptyDataError:
+        weights = pd.DataFrame(columns=["date", "strategy", "ticker", "weight"])
     strategies = sorted(series["strategy"].unique())
 
     export_metrics_long(metrics, tabs)
@@ -53,9 +55,7 @@ def main(out_dir: str):
     ctx = {
         "python": sh("python -V"),
         "git_commit": (
-            sh("git rev-parse --short HEAD")
-            if (Path(".git") / "HEAD").exists()
-            else "zip"
+            sh("git rev-parse --short HEAD") if (Path(".git") / "HEAD").exists() else "zip"
         ),
         "run_date": run_id,
         "strategies": strategies,

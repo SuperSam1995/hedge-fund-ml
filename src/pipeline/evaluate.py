@@ -42,6 +42,10 @@ __all__ = [
 ]
 
 
+SERIES_EXPORT_PATH = Path("reports/series/replication_series.csv")
+WEIGHTS_EXPORT_PATH = Path("data/interim/replication_weights.csv")
+
+
 class EvaluationOutputConfig(BaseModel):
     """Locations for evaluation artefacts."""
 
@@ -241,9 +245,7 @@ def _prepare_returns_long(returns_panel: pd.DataFrame) -> pd.DataFrame:
     stacked = stacked.rename(columns={date_col: "date"})
     role_col = "series" if "series" in stacked.columns else stacked.columns[1]
     stacked = stacked.rename(columns={role_col: "role"})
-    strategy_cols = [
-        col for col in stacked.columns if col not in {"date", "role", "return"}
-    ]
+    strategy_cols = [col for col in stacked.columns if col not in {"date", "role", "return"}]
     if strategy_cols:
         stacked["strategy"] = stacked[strategy_cols].apply(
             lambda row: _combine_parts([value for value in row if pd.notna(value)]), axis=1
@@ -278,6 +280,64 @@ def _prepare_weights_long(weights: pd.DataFrame) -> pd.DataFrame:
     result = stacked[["date", "strategy", "ticker", "weight"]].copy()
     result["date"] = pd.to_datetime(result["date"])
     return result.sort_values(["strategy", "date", "ticker"]).reset_index(drop=True)
+
+
+def _build_metrics_output(
+    metrics_long: pd.DataFrame,
+    returns_long: pd.DataFrame,
+    metrics_frame: pd.DataFrame,
+) -> pd.DataFrame:
+    """Assemble the canonical metrics export with deterministic columns."""
+
+    required_columns = [
+        "strategy",
+        "role",
+        "horizon",
+        "start",
+        "end",
+        "ann_return",
+        "ann_vol",
+        "sharpe",
+        "sortino",
+        "omega",
+        "max_dd",
+        "turnover",
+        "alpha_ff3",
+        "alpha_ff5",
+    ]
+
+    coverage = (
+        returns_long.groupby(["strategy", "role"], dropna=False)
+        .agg(start=("date", "min"), end=("date", "max"), horizon=("date", "count"))
+        .reset_index()
+    )
+
+    metrics = metrics_long.merge(coverage, on=["strategy", "role"], how="left")
+
+    if "horizon" in metrics.columns:
+        metrics["horizon"] = metrics["horizon"].astype("Int64")
+
+    turnover_value = pd.NA
+    if "turnover" in metrics_frame.index and "turnover" in metrics_frame.columns:
+        try:
+            turnover_value = metrics_frame.loc["turnover", "turnover"]
+        except KeyError:
+            turnover_value = pd.NA
+
+    if "turnover" not in metrics.columns:
+        metrics["turnover"] = pd.NA
+
+    if pd.notna(turnover_value):
+        metrics.loc[metrics["role"] == "replica", "turnover"] = turnover_value
+
+    for column in ("alpha_ff3", "alpha_ff5"):
+        metrics[column] = pd.NA
+
+    for column in required_columns:
+        if column not in metrics.columns:
+            metrics[column] = pd.NA
+
+    return metrics[required_columns].sort_values(["strategy", "role"]).reset_index(drop=True)
 
 
 def _compute_metrics(
@@ -322,9 +382,13 @@ def _compute_metrics(
     return metrics
 
 
-def _persist_metrics(config: EvaluationConfig, metrics_frame: pd.DataFrame) -> None:
+def _persist_metrics(
+    config: EvaluationConfig,
+    metrics_frame: pd.DataFrame,
+    metrics_long: pd.DataFrame,
+) -> None:
     config.output.metrics_csv.parent.mkdir(parents=True, exist_ok=True)
-    metrics_frame.to_csv(config.output.metrics_csv)
+    metrics_long.to_csv(config.output.metrics_csv, index=False)
     config.output.metrics_json.parent.mkdir(parents=True, exist_ok=True)
     config.output.metrics_json.write_text(
         metrics_frame.to_json(orient="table", indent=2),
@@ -364,8 +428,6 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
     weights_float = weights.astype(float)
     metrics_dict = _compute_metrics(returns_panel, weights_float, config.settings)
     metrics_frame = metrics_table(metrics_dict)
-    _persist_metrics(config, metrics_frame)
-
     metrics_long = _prepare_metrics_long(metrics_frame)
 
     if config.output.metrics_summary is not None:
@@ -383,6 +445,15 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
     returns_long = returns_long[returns_long["role"].isin(["replica", "target"])]
     weights_long = _prepare_weights_long(weights_float)
     strategies = sorted(returns_long["strategy"].unique())
+
+    metrics_export = _build_metrics_output(metrics_long, returns_long, metrics_frame)
+    _persist_metrics(config, metrics_frame, metrics_export)
+
+    SERIES_EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    returns_long.to_csv(SERIES_EXPORT_PATH, index=False)
+
+    WEIGHTS_EXPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    weights_long.to_csv(WEIGHTS_EXPORT_PATH, index=False)
 
     try:
         root_dir = config.output.metrics_csv.parents[1]
