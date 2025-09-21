@@ -49,7 +49,7 @@ reproduce:
 
 bundle:
 	uv run --group dev python -m scripts.bundle_report --out $(bundle_dir)
-	@echo "Bundle written to $(bundle_dir)"
+	@echo "Bundle ready at $(bundle_dir)"
 
 train_itrafo:
 	uv run --group dev --group deep-learning-torch python -m scripts.train_transformer --config configs/transformer.yaml
