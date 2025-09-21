@@ -29,12 +29,12 @@ dev = [
   "papermill",
   "jupytext",
   "nbconvert",
-  "ipykernel",
   "matplotlib",
   "pandas",
   "numpy",
   "statsmodels",
-  "cvxpy",
+  "jinja2",  # if you later move index.md to a Jinja template
+  "ipykernel",  # required for papermill execution
 ]
 deep-learning-torch = [
   "einops",
