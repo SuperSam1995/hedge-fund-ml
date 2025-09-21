@@ -2,64 +2,59 @@ from __future__ import annotations
 
 import pandas as pd
 
-from report import (
-    export_metrics_long,
-    export_returns_long,
-    export_weights_long,
-)
+from report import export_metrics_long, export_returns_long, export_weights_long
 
 
 def test_export_metrics_long(tmp_path):
     frame = pd.DataFrame(
         {
-            "ann_return": [0.1, 0.2],
-            "ann_vol": [0.3, 0.4],
-        },
-        index=pd.Index(["target:a", "replica:a"], name="series"),
+            "strategy": ["alpha", "alpha", "beta", "beta"],
+            "role": ["replica", "target", "replica", "target"],
+            "ann_return": [0.1, 0.2, 0.3, 0.4],
+            "ann_vol": [0.5, 0.6, 0.7, 0.8],
+        }
     )
 
-    output = export_metrics_long(frame, tmp_path)
+    export_metrics_long(frame, tmp_path)
 
-    exported = pd.read_csv(output)
-    assert set(exported.columns) == {"series", "metric", "value"}
-    assert len(exported) == 4
+    exported = pd.read_csv(tmp_path / "metrics_by_series.csv")
+    pd.testing.assert_frame_equal(exported, frame)
 
 
 def test_export_returns_long(tmp_path):
-    columns = pd.MultiIndex.from_product(
-        [["target", "replica"], ["asset_a", "asset_b"]],
-        names=["series", "asset"],
-    )
-    index = pd.date_range("2024-01-01", periods=2, freq="D", name="date")
     frame = pd.DataFrame(
-        [[0.01, 0.02, 0.03, 0.04], [0.05, 0.06, 0.07, 0.08]],
-        index=index,
-        columns=columns,
+        {
+            "date": pd.date_range("2024-01-01", periods=4, freq="MS"),
+            "strategy": ["alpha", "alpha", "beta", "beta"],
+            "role": ["target", "replica", "target", "replica"],
+            "return": [0.01, 0.02, 0.03, 0.04],
+        }
     )
 
-    output = export_returns_long(frame, tmp_path)
+    export_returns_long(frame, tmp_path)
 
-    exported = pd.read_csv(output)
-    assert exported.columns.tolist() == ["date", "series", "asset", "return"]
-    assert exported.shape[0] == 8
+    exported = pd.read_csv(tmp_path / "returns_long.csv", parse_dates=["date"])
+    pd.testing.assert_frame_equal(exported, frame)
 
 
 def test_export_weights_long(tmp_path):
-    columns = pd.MultiIndex.from_product(
-        [["alpha", "beta"], ["asset_a", "asset_b"]],
-        names=["strategy", "asset"],
-    )
-    index = pd.date_range("2024-01-01", periods=2, freq="D", name="date")
     frame = pd.DataFrame(
-        [[0.5, 0.5, 0.4, 0.6], [0.6, 0.4, 0.3, 0.7]],
-        index=index,
-        columns=columns,
+        {
+            "date": pd.date_range("2024-01-01", periods=4, freq="MS"),
+            "strategy": ["alpha", "alpha", "beta", "beta"],
+            "ticker": ["A", "B", "A", "B"],
+            "weight": [0.1, 0.2, 0.3, 0.4],
+        }
     )
 
-    outputs = export_weights_long(frame, tmp_path)
+    export_weights_long(frame, tmp_path, ["alpha", "beta"])
 
-    assert set(outputs.keys()) == {"alpha", "beta"}
-    for path in outputs.values():
-        exported = pd.read_csv(path)
-        assert exported.columns.tolist() == ["date", "asset", "weight"]
-        assert exported.shape[0] == 4
+    alpha = pd.read_csv(tmp_path / "weights_alpha.csv", parse_dates=["date"])
+    beta = pd.read_csv(tmp_path / "weights_beta.csv", parse_dates=["date"])
+
+    pd.testing.assert_frame_equal(
+        alpha.reset_index(drop=True), frame[frame["strategy"] == "alpha"].reset_index(drop=True)
+    )
+    pd.testing.assert_frame_equal(
+        beta.reset_index(drop=True), frame[frame["strategy"] == "beta"].reset_index(drop=True)
+    )

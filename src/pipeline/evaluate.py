@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -135,6 +137,35 @@ def _to_float_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return numeric.astype(float)
 
 
+def _normalise_label(label: object) -> str:
+    if isinstance(label, str):
+        text = label.strip()
+        if not text or text.lower() == "nan":
+            return ""
+        if text.startswith("(") and text.endswith(")"):
+            try:
+                parsed = ast.literal_eval(text)
+            except (ValueError, SyntaxError):
+                pass
+            else:
+                return _normalise_label(parsed)
+        if text[0] == text[-1] and text[0] in {'"', "'"}:
+            return text[1:-1]
+        return text
+    if isinstance(label, Sequence) and not isinstance(label, (str, bytes)):
+        parts = [part for part in label if part is not None]
+        cleaned = [_normalise_label(part) for part in parts]
+        return "_".join(part for part in cleaned if part)
+    if label is None:
+        return ""
+    return str(label)
+
+
+def _combine_parts(values: Sequence[object]) -> str:
+    cleaned = [_normalise_label(value) for value in values]
+    return "_".join(part for part in cleaned if part)
+
+
 def build_cumulative_returns(panel: pd.DataFrame) -> pd.DataFrame:
     target = _to_float_frame(_select_series(panel, "target"))
     replica = _to_float_frame(_select_series(panel, "hk_prediction"))
@@ -173,6 +204,80 @@ def _build_returns_panel(panel: pd.DataFrame) -> pd.DataFrame:
     ]
     returns_panel.columns = returns_panel.columns.set_names(column_names)
     return returns_panel
+
+
+def _prepare_metrics_long(metrics_frame: pd.DataFrame) -> pd.DataFrame:
+    records: list[dict[str, object]] = []
+    for label, row in metrics_frame.iterrows():
+        if isinstance(label, tuple):
+            role = _normalise_label(label[0])
+            strategy = _combine_parts(label[1:])
+        else:
+            text = str(label)
+            if ":" not in text:
+                continue
+            role_part, value_part = text.split(":", 1)
+            role = _normalise_label(role_part)
+            strategy = _normalise_label(value_part)
+        if role not in {"replica", "target"}:
+            continue
+        record = {"strategy": strategy, "role": role}
+        record.update(row.to_dict())
+        records.append(record)
+    if not records:
+        return pd.DataFrame(columns=["strategy", "role"])
+    frame = pd.DataFrame(records)
+    frame = frame.sort_values(["strategy", "role"]).reset_index(drop=True)
+    return frame
+
+
+def _prepare_returns_long(returns_panel: pd.DataFrame) -> pd.DataFrame:
+    stacked = (
+        returns_panel.stack(list(range(returns_panel.columns.nlevels)), future_stack=True)
+        .rename("return")
+        .reset_index()
+    )
+    date_col = stacked.columns[0]
+    stacked = stacked.rename(columns={date_col: "date"})
+    role_col = "series" if "series" in stacked.columns else stacked.columns[1]
+    stacked = stacked.rename(columns={role_col: "role"})
+    strategy_cols = [
+        col for col in stacked.columns if col not in {"date", "role", "return"}
+    ]
+    if strategy_cols:
+        stacked["strategy"] = stacked[strategy_cols].apply(
+            lambda row: _combine_parts([value for value in row if pd.notna(value)]), axis=1
+        )
+    else:
+        stacked["strategy"] = ""
+    result = stacked[["date", "strategy", "role", "return"]].copy()
+    result["date"] = pd.to_datetime(result["date"])
+    return result.sort_values(["strategy", "role", "date"]).reset_index(drop=True)
+
+
+def _prepare_weights_long(weights: pd.DataFrame) -> pd.DataFrame:
+    stacked = (
+        weights.stack(list(range(weights.columns.nlevels)), future_stack=True)
+        .rename("weight")
+        .reset_index()
+    )
+    date_col = stacked.columns[0]
+    stacked = stacked.rename(columns={date_col: "date"})
+    strategy_col = stacked.columns[1]
+    stacked["strategy"] = stacked[strategy_col].apply(_normalise_label)
+    extra_cols = [
+        col for col in stacked.columns if col not in {"date", strategy_col, "weight", "strategy"}
+    ]
+    if extra_cols:
+        stacked["ticker"] = stacked[extra_cols].apply(
+            lambda row: _combine_parts([value for value in row if pd.notna(value)]),
+            axis=1,
+        )
+    else:
+        stacked["ticker"] = ""
+    result = stacked[["date", "strategy", "ticker", "weight"]].copy()
+    result["date"] = pd.to_datetime(result["date"])
+    return result.sort_values(["strategy", "date", "ticker"]).reset_index(drop=True)
 
 
 def _compute_metrics(
@@ -261,14 +366,9 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
     metrics_frame = metrics_table(metrics_dict)
     _persist_metrics(config, metrics_frame)
 
+    metrics_long = _prepare_metrics_long(metrics_frame)
+
     if config.output.metrics_summary is not None:
-        metrics_long = (
-            metrics_frame.copy()
-            .rename_axis(index="series")
-            .reset_index()
-            .melt(id_vars="series", var_name="metric", value_name="value")
-            .sort_values(["series", "metric"], ignore_index=True)
-        )
         summary = build_metrics_summary(metrics_long)
         config.output.metrics_summary.parent.mkdir(parents=True, exist_ok=True)
         config.output.metrics_summary.write_text(
@@ -279,13 +379,19 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResult:
     cumulative = build_cumulative_returns(panel)
     _persist_figure(config, cumulative)
 
+    returns_long = _prepare_returns_long(returns_panel)
+    returns_long = returns_long[returns_long["role"].isin(["replica", "target"])]
+    weights_long = _prepare_weights_long(weights_float)
+    strategies = sorted(returns_long["strategy"].unique())
+
     try:
-        tables_root = config.output.metrics_csv.parents[1]
+        root_dir = config.output.metrics_csv.parents[1]
     except IndexError:
-        tables_root = config.output.metrics_csv.parent
-    export_metrics_long(metrics_frame, tables_root)
-    export_returns_long(returns_panel, tables_root)
-    export_weights_long(weights_float, tables_root)
+        root_dir = config.output.metrics_csv.parent
+    tables_root = root_dir / "tables"
+    export_metrics_long(metrics_long, tables_root)
+    export_returns_long(returns_long, tables_root)
+    export_weights_long(weights_long, tables_root, strategies)
 
     if config.output.metadata is not None:
         metadata = collect_run_metadata(0, config.packages)
