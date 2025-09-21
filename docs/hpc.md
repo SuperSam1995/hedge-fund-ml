@@ -28,3 +28,11 @@ tail -f logs/reproduce_*.out
 uv sync --group dev
 make reproduce_cpu
 ```
+
+## LLM bundle on HPC
+```bash
+sbatch jobs/bundle_cpu.sbatch
+```
+
+**Done when**
+- `sbatch jobs/bundle_cpu.sbatch` creates a new `reports/bundle/<run_id>/` on the cluster.
