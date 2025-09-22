@@ -13,13 +13,13 @@ uv run --group dev python -m scripts.build_features --config configs/features.ya
 uv run --group dev python -m scripts.replicate     --config configs/replicate.yaml
 uv run --group dev python -m scripts.eval          --config configs/eval.yaml
 # ensure dirs exist
-mkdir -p reports reports/figures
+mkdir -p reports results results/figures
 # convert text notebook → ipynb (always fresh)
 uv run --group dev jupytext --to ipynb notebooks/final_report.py -o reports/_tmp.ipynb
 
 uv run --group dev papermill reports/_tmp.ipynb reports/_exec.ipynb \
-  -p metrics_path reports/metrics/replication_metrics.json \
-  -p figures_dir reports/figures
+  -p metrics_path results/metrics/replication_metrics.json \
+  -p figures_dir results/figures
 uv run --group dev jupyter nbconvert --to html --no-input \
   --output-dir reports --output final_report.html reports/_exec.ipynb
 echo "Report: reports/final_report.html"

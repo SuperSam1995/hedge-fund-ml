@@ -1,12 +1,12 @@
 data:
-  panel: data/interim/replication_series_itrafo.csv
-  weights: data/interim/replication_weights_itrafo.csv
+  panel: results/tables/replication_series_itrafo.csv
+  weights: results/tables/replication_weights_itrafo.csv
 output:
-  metrics_csv: reports/metrics/itrafo_metrics.csv
-  metrics_json: reports/metrics/itrafo_metrics.json
-  metrics_summary: reports/metrics/itrafo_metrics_summary.json
-  figure: reports/figures/replication_cumulative_itrafo.png
-  metadata: reports/metadata/itrafo_evaluation.json
+  metrics_csv: results/metrics/itrafo_metrics.csv
+  metrics_json: results/metrics/itrafo_metrics.json
+  metrics_summary: results/metrics/itrafo_metrics_summary.json
+  figure: results/figures/replication_cumulative_itrafo.png
+  metadata: results/logs/itrafo_evaluation.json
 settings:
   periods_per_year: 12
   risk_free_rate: 0.0

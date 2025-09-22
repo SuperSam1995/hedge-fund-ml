@@ -82,7 +82,7 @@ from hedge_fund_ml import set_global_seed, collect_run_metadata
 
 seed_info = set_global_seed(42)
 metadata = collect_run_metadata(seed=42, packages=["numpy", "pandas", "scikit-learn"])
-metadata.write_json("reports/run_metadata.json")
+metadata.write_json("results/logs/run_metadata.json")
 ```
 
 The seeding utility touches Python, NumPy, PyTorch (if installed), TensorFlow
@@ -108,19 +108,19 @@ are available. Expect the command to:
 2. Honour the YAML run configuration at `configs/run.yaml` (or an override via
    `--config`) for seeding and package metadata capture.
 3. Leave artefacts in deterministic locations:
-   - Run metadata JSONs inside `reports/metadata/` for each pipeline stage.
-   - Synthetic replication payload at `reports/replication.json`.
-   - Evaluation metrics snapshot at `reports/metrics.json`.
-   - Placeholder figure written to `reports/figures/replication_placeholder.png`.
+   - Run metadata JSONs inside `results/logs/` for each pipeline stage.
+   - Synthetic replication payload at `results/logs/replication.json`.
+   - Evaluation metrics snapshot at `results/metrics/metrics.json`.
+   - Placeholder figure written to `results/figures/replication_placeholder.png`.
 
 The run assumes immutable raw inputs in `data/raw/` (managed through the
-registry) and writes only to `data/interim/` or below `reports/` to keep raw
+registry) and writes only to `data/interim/` or below `results/` to keep raw
 data untouched.
 
 ## Reporting
 
 Matplotlib visualisations should be single-purpose figures with labelled axes
-and saved into `reports/figures/` for reproducibility.
+and saved into `results/figures/` for reproducibility.
 
 ## Quality gates
 

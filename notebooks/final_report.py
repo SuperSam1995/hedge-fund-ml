@@ -19,8 +19,8 @@
 
 # %% tags=["parameters"]
 # Parameters
-metrics_path = "reports/metrics_latest.json"
-figures_dir = "reports/figures"
+metrics_path = "results/metrics_latest.json"
+figures_dir = "results/figures"
 
 # %%
 from __future__ import annotations

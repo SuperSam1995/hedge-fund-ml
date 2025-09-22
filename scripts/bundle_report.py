@@ -22,14 +22,14 @@ def sh(cmd):
 
 def main(out_dir: str):
     run_id = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H%MZ")
-    root = Path(out_dir or f"reports/bundle/{run_id}")
+    root = Path(out_dir or f"results/logs/bundle/{run_id}")
     figs = root / "figures"
     tabs = root / "tables"
     root.mkdir(parents=True, exist_ok=True)
 
-    metrics_src = Path("reports/metrics/replication_metrics.csv")
-    series_src = Path("reports/series/replication_series.csv")
-    weights_src = Path("data/interim/replication_weights.csv")
+    metrics_src = Path("results/metrics/replication_metrics.csv")
+    series_src = Path("results/tables/replication_series.csv")
+    weights_src = Path("results/tables/replication_weights.csv")
 
     for path in (metrics_src, series_src, weights_src):
         if not path.exists():

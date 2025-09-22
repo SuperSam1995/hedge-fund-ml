@@ -21,7 +21,7 @@ tail -f logs/reproduce_*.out
 ## Inputs & Outputs
 
 - **Inputs** (repo-relative): `cleaned_data/factor_etf_data.csv`, `cleaned_data/hfd.csv`
-- **Outputs**: `data/interim/*`, `reports/metrics/*`, `reports/figures/*`, `reports/final_report.html`
+- **Outputs**: `data/interim/*`, `results/metrics/*`, `results/figures/*`, `reports/final_report.html`
 
 ## Run locally (smoke test)
 ```bash
@@ -35,4 +35,4 @@ sbatch jobs/bundle_cpu.sbatch
 ```
 
 **Done when**
-- `sbatch jobs/bundle_cpu.sbatch` creates a new `reports/bundle/<run_id>/` on the cluster.
+- `sbatch jobs/bundle_cpu.sbatch` creates a new `results/logs/bundle/<run_id>/` on the cluster.

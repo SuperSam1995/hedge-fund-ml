@@ -3,9 +3,9 @@ packages: ["numpy", "pandas", "cvxpy"]
 paths:
   itrafo_forecast_csv: data/interim/itrafo_forecast.csv
   etf_forecast_csv: data/interim/etf_forecast.csv
-  weights_csv: data/interim/replication_weights_itrafo.csv
-  series_csv: data/interim/replication_series_itrafo.csv
-  metadata_json: data/interim/replication_metadata_itrafo.json
+  weights_csv: results/tables/replication_weights_itrafo.csv
+  series_csv: results/tables/replication_series_itrafo.csv
+  metadata_json: results/logs/replication_metadata_itrafo.json
 cols:
   date: date
   strategy: strategy
