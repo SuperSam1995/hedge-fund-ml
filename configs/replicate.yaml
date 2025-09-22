@@ -15,7 +15,7 @@ features:
     targets: cleaned_data/hfd.csv
     output_features: data/interim/features.csv
     output_model: data/interim/hk_span_model.json
-    metadata: reports/metadata/features.json
+    metadata: results/logs/features.json
   split:
     train_start: 1994-04-30
     train_end: 2015-12-31
@@ -33,6 +33,6 @@ features:
     add_intercept: true
     ridge_alpha: 0.0
 output:
-  weights: data/interim/replication_weights.csv
-  scaler: data/interim/volatility_scaler.csv
-  metadata: reports/metadata/replication.json
+  weights: results/tables/replication_weights.csv
+  scaler: results/tables/volatility_scaler.csv
+  metadata: results/logs/replication.json

@@ -42,8 +42,8 @@ __all__ = [
 ]
 
 
-SERIES_EXPORT_PATH = Path("reports/series/replication_series.csv")
-WEIGHTS_EXPORT_PATH = Path("data/interim/replication_weights.csv")
+SERIES_EXPORT_PATH = Path("results/tables/replication_series.csv")
+WEIGHTS_EXPORT_PATH = Path("results/tables/replication_weights.csv")
 
 
 class EvaluationOutputConfig(BaseModel):

@@ -18,9 +18,9 @@ from hedge_fund_ml import DataRegistry, collect_run_metadata, set_global_seed
 DEFAULT_DATA_ROOT = Path("data")
 DEFAULT_REGISTRY_PATH = Path("configs/data_registry.yaml")
 DEFAULT_RUN_CONFIG_PATH = Path("configs/run.yaml")
-DEFAULT_METADATA_DIR = Path("reports/metadata")
-DEFAULT_FIGURE_DIR = Path("reports/figures")
-DEFAULT_METRICS_PATH = Path("reports/metrics.json")
+DEFAULT_METADATA_DIR = Path("results/logs")
+DEFAULT_FIGURE_DIR = Path("results/figures")
+DEFAULT_METRICS_PATH = Path("results/metrics/metrics.json")
 DEFAULT_PACKAGES: list[str] = ["numpy", "pandas", "scikit-learn", "matplotlib"]
 DEEP_LEARNING_EXTRAS = ["tensorflow", "keras"]
 
@@ -100,7 +100,7 @@ def run_gan(config_path: Path | None) -> Path:
 
 def run_replicate(
     config_path: Path | None,
-    output_path: Path = Path("reports/replication.json"),
+    output_path: Path = Path("results/logs/replication.json"),
 ) -> Path:
     config = load_run_config(config_path)
     seeded = set_global_seed(config.seed)

@@ -14,12 +14,11 @@ __pycache__/
 # Generated data artefacts
 data/interim/
 /models/
-reports/figures/*
-!reports/figures/.gitkeep
-reports/metrics/*
-!reports/metrics/.gitkeep
-reports/metadata/*
-!reports/metadata/.gitkeep
+
+# Experiment outputs
+results/**
+!results/.gitkeep
+!results/**/.gitkeep
 reports/_tmp_*.ipynb
 reports/_exec_*.ipynb
 reports/final_report_*.html

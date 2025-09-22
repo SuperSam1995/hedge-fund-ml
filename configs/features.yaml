@@ -10,7 +10,7 @@ data:
   targets: cleaned_data/hfd.csv
   output_features: data/interim/features.csv
   output_model: data/interim/hk_span_model.json
-  metadata: reports/metadata/features.json
+  metadata: results/logs/features.json
 
 split:
   train_start: 1994-04-30

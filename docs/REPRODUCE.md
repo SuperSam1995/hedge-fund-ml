@@ -35,10 +35,10 @@ activate `.venv/` manually.
 Running `make reproduce` produces deterministic outputs in the following
 locations:
 
-- Stage-level run metadata JSON documents in `reports/metadata/`.
-- Replication payload persisted to `reports/replication.json`.
-- Evaluation metrics snapshot at `reports/metrics.json`.
-- Matplotlib figure saved to `reports/figures/replication_placeholder.png` with
+- Stage-level run metadata JSON documents in `results/logs/`.
+- Replication payload persisted to `results/logs/replication.json`.
+- Evaluation metrics snapshot at `results/metrics/metrics.json`.
+- Matplotlib figure saved to `results/figures/replication_placeholder.png` with
   labelled axes.
 
 These artefacts, together with the seed fixes declared in `configs/run.yaml`,

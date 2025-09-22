@@ -5,7 +5,7 @@ PYTHON := $(UV) run --group dev python
 PYTHON_DL := $(UV) run --group dev --extra deep-learning python
 REPORT_DATE := $(shell date +%Y-%m-%d)
 REPORT_NOTEBOOK := notebooks/final_report.py  # text notebook (py:percent)
-bundle_dir := $(shell date -u +reports/bundle/%Y-%m-%dT%H%MZ)
+bundle_dir := $(shell date -u +results/logs/bundle/%Y-%m-%dT%H%MZ)
 
 setup:
 	$(UV) sync --group dev
@@ -39,8 +39,8 @@ eval:
 report:
 	$(UV) run --group dev jupytext --to ipynb $(REPORT_NOTEBOOK) -o reports/_tmp_$(REPORT_DATE).ipynb
 	$(UV) run --group dev papermill reports/_tmp_$(REPORT_DATE).ipynb reports/_exec_$(REPORT_DATE).ipynb \
-	  -p metrics_path reports/metrics_latest.json \
-	  -p figures_dir reports/figures
+	  -p metrics_path results/metrics_latest.json \
+	  -p figures_dir results/figures
 	$(UV) run --group dev jupyter nbconvert --to html --no-input reports/_exec_$(REPORT_DATE).ipynb \
 	  --output reports/final_report_$(REPORT_DATE).html
 
@@ -64,7 +64,7 @@ report_itrafo:
 	$(MAKE) eval_itrafo && $(MAKE) report
 
 # ---------- CPU-only reproducible pipeline (no TF required) ----------
-METRICS_JSON := $(shell ls -1t reports/metrics/*.json 2>/dev/null | head -n1)
+METRICS_JSON := $(shell ls -1t results/metrics/*.json 2>/dev/null | head -n1)
 
 .PHONY: reproduce_cpu report_cpu open-report
 
@@ -74,12 +74,13 @@ reproduce_cpu:
 	uv run --group dev python -m scripts.eval          --config configs/eval.yaml
 	$(MAKE) report_cpu
 
+
 report_cpu:
 	@mkdir -p reports
 	uv run --group dev jupytext --to ipynb notebooks/final_report.py -o notebooks/final_report.ipynb
 	uv run --group dev papermill notebooks/final_report.ipynb reports/_tmp.ipynb \
 	  -p metrics_path $(METRICS_JSON) \
-	  -p figures_dir reports/figures
+	  -p figures_dir results/figures
 	uv run --group dev jupyter nbconvert --to html --no-input \
 	  --output-dir reports --output final_report.html reports/_tmp.ipynb
 	@echo "Report ready: reports/final_report.html"

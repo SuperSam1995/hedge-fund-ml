@@ -1,12 +1,12 @@
 data:
   panel: data/interim/features.csv
-  weights: data/interim/replication_weights.csv
+  weights: results/tables/replication_weights.csv
 output:
-  metrics_csv: reports/metrics/replication_metrics.csv
-  metrics_json: reports/metrics/replication_metrics.json
-  metrics_summary: reports/metrics/replication_metrics_summary.json
-  figure: reports/figures/replication_cumulative.png
-  metadata: reports/metadata/evaluation.json
+  metrics_csv: results/metrics/replication_metrics.csv
+  metrics_json: results/metrics/replication_metrics.json
+  metrics_summary: results/metrics/replication_metrics_summary.json
+  figure: results/figures/replication_cumulative.png
+  metadata: results/logs/evaluation.json
 settings:
   periods_per_year: 12
   risk_free_rate: 0.0
