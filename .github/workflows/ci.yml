@@ -1,20 +1,17 @@
 name: CI
 on: [pull_request, push]
+
 jobs:
-  smoke:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-        with: { python-version: "3.13" }
-      - run: uv sync --group dev
-      - run: make reproduce_cpu
-      - run: make bundle
-      - run: test -f $(ls -td results/logs/bundle/* | head -1)/index.md
-      - name: Capture bundle path
-        run: echo "BUNDLE_DIR=$(ls -td results/logs/bundle/* | head -1)" >> "$GITHUB_ENV"
-      - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
         with:
-          name: bundle
-          path: ${{ env.BUNDLE_DIR }}
+          python-version: "3.13"
+      - name: Sync dependencies
+        run: uv sync --group dev
+      - name: Lint smoke test
+        run: uv run --group dev ruff check tests/test_ci_smoke.py
+      - name: Pytest smoke
+        run: uv run --group dev pytest -q tests/test_ci_smoke.py
