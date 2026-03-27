@@ -18,29 +18,19 @@
 # https://github.com/keras-team/keras-contrib/blob/master/examples/improved_wgan.py
 # which I've used as a reference for this implementation
 
-from __future__ import print_function, division
 
 import pickle
 from datetime import datetime
-from random import randint
-import tensorflow as tf
-from keras.datasets import mnist
-from keras.layers.merging.base_merge import _Merge
-from keras.layers import Input, Dense, Reshape, Flatten, Dropout, LSTM, LayerNormalization
-from keras.layers import BatchNormalization, Activation, ZeroPadding2D, LeakyReLU
-from keras.layers.convolutional import UpSampling2D, Conv2D
-from keras.models import Sequential, Model
-from keras.optimizers import RMSprop
 from functools import partial
+from random import randint
 
 import keras.backend as K
-
-import matplotlib.pyplot as plt
-
-import sys
-
 import numpy as np
-
+import tensorflow as tf
+from keras.layers import Dense, Flatten, Input, LayerNormalization, LeakyReLU
+from keras.layers.merging.base_merge import _Merge
+from keras.models import Model, Sequential
+from keras.optimizers import RMSprop
 from tensorflow.python.framework.ops import disable_eager_execution
 
 disable_eager_execution()
@@ -68,6 +58,7 @@ def dic_read(loc):
 def set_seed(seed_value=123):
     import os
     import random
+
     import tensorflow as tf
     os.environ['PYTHONHASHSEED'] = str(seed_value)
     np.random.seed(seed_value)
@@ -128,7 +119,7 @@ dataset = random_sampling(data, 1000, 48)
 #         return (alpha * inputs[0]) + ((1 - alpha) * inputs[1])
 
 
-class MTTS_WGAN_GP():
+class MTTS_WGAN_GP:
     def __init__(self, dataset):
         self.X_train = dataset
 

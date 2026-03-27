@@ -168,22 +168,30 @@ def _decode_panel(config: ITrafoConfig, frame: pd.DataFrame) -> tuple[pd.DataFra
 
     for strategy, group in frame.groupby(cols.strategy, sort=False):
         previous_weights: NDArray[np.float_] | None = None
-        for _, row in group.iterrows():
-            etf_forecast = row[cols.etfs].to_numpy(dtype=float)
-            result = decoder.solve_once(etf_forecast, float(row[cols.yhat]), previous_weights)
+
+        etf_forecasts = group[cols.etfs].to_numpy(dtype=float)
+        yhats = group[cols.yhat].to_numpy(dtype=float)
+        dates = group[cols.date].to_numpy()
+
+        for i in range(len(group)):
+            etf_forecast = etf_forecasts[i]
+            yhat = float(yhats[i])
+            date = dates[i]
+
+            result = decoder.solve_once(etf_forecast, yhat, previous_weights)
             weights_vector: NDArray[np.float_] = result.weights
 
-            weight_record: dict[str, object] = {cols.date: row[cols.date], cols.strategy: strategy}
+            weight_record: dict[str, object] = {cols.date: date, cols.strategy: strategy}
             weight_record.update(dict(zip(cols.etfs, weights_vector, strict=True)))
             weights_rows.append(weight_record)
 
             portfolio_hat = float(np.dot(etf_forecast, weights_vector))
             series_rows.append(
                 {
-                    cols.date: row[cols.date],
+                    cols.date: date,
                     cols.strategy: strategy,
                     "portfolio_return_hat": portfolio_hat,
-                    "target_return_hat": float(row[cols.yhat]),
+                    "target_return_hat": yhat,
                 }
             )
             previous_weights = weights_vector

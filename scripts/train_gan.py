@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -73,7 +73,7 @@ class WGANDataConfig(BaseModel):
         return windows
 
 
-def _load_config(path: Path) -> Tuple[WGANConfig, WGANDataConfig]:
+def _load_config(path: Path) -> tuple[WGANConfig, WGANDataConfig]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data_payload = payload.pop("data", None)
     if data_payload is None:

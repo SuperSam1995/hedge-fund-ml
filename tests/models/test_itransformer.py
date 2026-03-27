@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import torch
 import pytest
+import torch
 
 from hedge_fund_ml.models.itransformer import ITransformer, ITransformerConfig
 
