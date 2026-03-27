@@ -14,23 +14,19 @@
 
 # %% pycharm={"name": "#%%\n"}
 import pickle
-from datetime import timedelta
 
-from scipy.stats import norm, t
-from sklearn.metrics import mean_squared_error, r2_score
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
-from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import statsmodels.api as sm
 import seaborn as sns
-import matplotlib.pyplot as plt
+import statsmodels.api as sm
+from plotly.subplots import make_subplots
+from pypfopt.efficient_frontier import EfficientFrontier
 from pypfopt.expected_returns import mean_historical_return
 from pypfopt.risk_models import sample_cov
-from pypfopt.efficient_frontier import EfficientFrontier
-from pypfopt import CovarianceShrinkage
-import scipy.optimize as sc
+from sklearn.metrics import mean_squared_error, r2_score
 
 # %% [markdown] pycharm={"name": "#%% md\n"}
 # # Data cleaning for risk free return
@@ -974,7 +970,7 @@ def efficient_span(df,method='HK'):
         remain = [factor for factor in full_factor if factor not in span]
         while remain:
             significance=np.inf
-            best_factor = str()
+            best_factor = ''
             for new_asset in remain:
                 if method == 'HK':
                     cur = hktest(np.array(df.loc[:,new_asset]),np.array(df.loc[:,span]))[1]
@@ -994,7 +990,7 @@ def efficient_span(df,method='HK'):
                 best_span.append(span)
                 break
     # evaluate sharpe of each span by mean variance optimizaton
-    best_span_idx=int()
+    best_span_idx=0
     best_sharpe = -np.inf
     flag=False
     for idx,span in enumerate(best_span):
@@ -1013,7 +1009,7 @@ def efficient_span(df,method='HK'):
     if flag:
         #min-length
         min_len = np.inf
-        min_len_idx=int()
+        min_len_idx=0
         for idx,span in enumerate(best_span):
             if len(span)<min_len:
                 min_len_idx,min_len = idx,len(span)
@@ -1028,6 +1024,7 @@ def efficient_span(df,method='HK'):
 
 # %% pycharm={"name": "#%%\n"}
 import time
+
 window = 24
 start_t = time.time()
 #first calculate factor span for all window, so we avoid doing so for every strategy

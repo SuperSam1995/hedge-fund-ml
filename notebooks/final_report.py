@@ -26,13 +26,13 @@ figures_dir = "results/figures"
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
 
+import matplotlib.pyplot as plt
 import pandas as pd
 from IPython.display import Image, Markdown, display
-import matplotlib.pyplot as plt
 
 from pipeline.evaluate import build_cumulative_returns
 

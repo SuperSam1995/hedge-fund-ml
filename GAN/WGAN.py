@@ -14,20 +14,17 @@
 # ---
 
 # %%
-from __future__ import print_function, division
 
 import pickle
 from datetime import datetime
 from random import randint
 
-import pandas as pd
-from keras.layers import Input, Dense, LeakyReLU, LSTM, LayerNormalization
-from keras.models import Sequential, Model
-from keras.optimizers import RMSprop, Adam
-
 import keras.backend as K
-
 import numpy as np
+import pandas as pd
+from keras.layers import Dense, Input, LayerNormalization, LeakyReLU
+from keras.models import Model, Sequential
+from keras.optimizers import RMSprop
 
 # Read-in cleaned data
 from sklearn.preprocessing import MinMaxScaler
@@ -50,6 +47,7 @@ def dic_read(loc):
 def set_seed(seed_value=123):
     import os
     import random
+
     import tensorflow as tf
     os.environ['PYTHONHASHSEED'] = str(seed_value)
     np.random.seed(seed_value)
@@ -99,7 +97,7 @@ data = data_scaler.fit_transform(dataset)
 dataset = random_sampling(data, 1000, 48)
 
 
-class WGAN():
+class WGAN:
     def __init__(self, dataset):
         isinstance(dataset, np.ndarray)
         self.X_train = dataset

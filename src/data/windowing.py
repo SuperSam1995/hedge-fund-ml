@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -38,7 +39,7 @@ class PanelConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @model_validator(mode="after")
-    def _validate_window_params(self) -> "PanelConfig":
+    def _validate_window_params(self) -> PanelConfig:
         if self.lookback <= 0:
             msg = "lookback must be a positive integer"
             raise ValueError(msg)
@@ -61,7 +62,7 @@ class SplitConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     @model_validator(mode="after")
-    def _validate_monotonic(self) -> "SplitConfig":
+    def _validate_monotonic(self) -> SplitConfig:
         train_end_ts = pd.Timestamp(self.train_end)
         val_end_ts = pd.Timestamp(self.val_end)
         test_end_ts = pd.Timestamp(self.test_end)
@@ -127,7 +128,7 @@ class ZScoreScaler:
     scale_: np.ndarray
 
     @classmethod
-    def fit(cls, data: np.ndarray) -> "ZScoreScaler":
+    def fit(cls, data: np.ndarray) -> ZScoreScaler:
         arr = np.asarray(data, dtype=np.float64)
         if arr.ndim < 2:
             msg = "data must have at least 2 dimensions"
@@ -150,7 +151,7 @@ class ZScoreScaler:
         return (arr - mean) / scale
 
     @classmethod
-    def fit_transform(cls, data: np.ndarray) -> tuple[np.ndarray, "ZScoreScaler"]:
+    def fit_transform(cls, data: np.ndarray) -> tuple[np.ndarray, ZScoreScaler]:
         scaler = cls.fit(data)
         return scaler.transform(data), scaler
 
