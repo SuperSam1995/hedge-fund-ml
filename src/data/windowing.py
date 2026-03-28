@@ -200,9 +200,7 @@ def load_panels(cfg: PanelConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     return panel_clean, target_clean
 
 
-def make_windows(
-    X: pd.DataFrame, y: pd.DataFrame, lookback: int, horizon: int
-) -> WindowedDataset:
+def make_windows(X: pd.DataFrame, y: pd.DataFrame, lookback: int, horizon: int) -> WindowedDataset:
     """Convert aligned panels into rolling windows with forward targets."""
 
     if lookback <= 0:

@@ -192,7 +192,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "--config",
             type=Path,
             default=None,
-            help=("Path to run configuration YAML " f"(default: {DEFAULT_RUN_CONFIG_PATH})."),
+            help=(f"Path to run configuration YAML (default: {DEFAULT_RUN_CONFIG_PATH})."),
         )
 
     def add_data_arguments(command: argparse.ArgumentParser) -> None:

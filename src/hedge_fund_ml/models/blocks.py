@@ -83,4 +83,3 @@ class SeriesTransformerBlock(nn.Module):
 
 
 __all__ = ["SeriesTransformerConfig", "SeriesTransformerBlock"]
-

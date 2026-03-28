@@ -71,7 +71,9 @@ class ITransformer(nn.Module):
             mlp_ratio=config.mlp_ratio,
             dropout=config.dropout,
         )
-        self.blocks = nn.ModuleList(SeriesTransformerBlock(block_config) for _ in range(config.depth))
+        self.blocks = nn.ModuleList(
+            SeriesTransformerBlock(block_config) for _ in range(config.depth)
+        )
         self.norm = nn.LayerNorm(config.embed_dim)
 
         self.head = nn.Sequential(
@@ -115,4 +117,3 @@ class ITransformer(nn.Module):
 
 
 __all__ = ["ITransformer", "ITransformerConfig"]
-

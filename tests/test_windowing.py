@@ -44,7 +44,9 @@ def test_make_windows_alignment(windowing_config: WindowingConfig) -> None:
     assert dataset.target_index.equals(y.index[cfg.lookback + cfg.horizon - 1 :])
 
     offset = pd.offsets.MonthEnd(cfg.horizon)
-    assert all(t + offset == s for t, s in zip(dataset.feature_index, dataset.target_index, strict=False))
+    assert all(
+        t + offset == s for t, s in zip(dataset.feature_index, dataset.target_index, strict=False)
+    )
 
 
 def test_zscore_scaler_train_only(windowing_config: WindowingConfig) -> None:

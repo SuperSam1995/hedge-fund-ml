@@ -44,8 +44,8 @@ from sklearn.preprocessing import MinMaxScaler
 def read_csv(loc, date=True):
     df = pd.read_csv(loc)
     if date:
-        df['Date'] = pd.to_datetime(df['Date'])
-        df.set_index('Date', inplace=True)
+        df["Date"] = pd.to_datetime(df["Date"])
+        df.set_index("Date", inplace=True)
     return df
 
 
@@ -60,32 +60,36 @@ def set_seed(seed_value=123):
     import random
 
     import tensorflow as tf
-    os.environ['PYTHONHASHSEED'] = str(seed_value)
+
+    os.environ["PYTHONHASHSEED"] = str(seed_value)
     np.random.seed(seed_value)
     random.seed(seed_value)
     tf.random.set_seed(seed_value)
     from keras import backend as K
-    session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+
+    session_conf = tf.compat.v1.ConfigProto(
+        intra_op_parallelism_threads=1, inter_op_parallelism_threads=1
+    )
     sess = tf.compat.v1.Session(graph=tf.compat.v1.get_default_graph(), config=session_conf)
     tf.compat.v1.keras.backend.set_session(sess)
     K.set_session(sess)
 
 
 def random_sampling(dataset, n_sample, window):
-    '''
+    """
     implicitly assuming there is no calendar effect.
     :param dataset: np.ndarray
     :param n_sample:
     :param window:
     :return:
-    '''
+    """
     isinstance(dataset, np.ndarray)
     step = 0
     res = []
     while step < n_sample:
         step += 1
         randidx = randint(0, dataset.shape[0] - window)
-        res.append(dataset[randidx:window + randidx])
+        res.append(dataset[randidx : window + randidx])
     # label as real data
     # label = np.ones(n_sample)
     # return np.array(res), label
@@ -94,10 +98,10 @@ def random_sampling(dataset, n_sample, window):
 
 set_seed()
 
-hfd = read_csv('../cleaned_data/hfd.csv')
-factor_etf_data = read_csv('../cleaned_data/factor_etf_data.csv')
-hfd_fullname = dic_read('../cleaned_data/hfd_fullname.pkl')
-factor_etf_name = dic_read('../cleaned_data/factor_etf_name.pkl')
+hfd = read_csv("../cleaned_data/hfd.csv")
+factor_etf_data = read_csv("../cleaned_data/factor_etf_data.csv")
+hfd_fullname = dic_read("../cleaned_data/hfd_fullname.pkl")
+factor_etf_name = dic_read("../cleaned_data/factor_etf_name.pkl")
 
 all_data_name = {**factor_etf_name, **hfd_fullname}
 
@@ -150,7 +154,12 @@ class WGAN_GP:
         real_ts = Input(shape=self.ts_shape)
 
         # Noise input
-        z_disc = Input(shape=(self.ts_length, self.ts_feature,))
+        z_disc = Input(
+            shape=(
+                self.ts_length,
+                self.ts_feature,
+            )
+        )
         # Generate image based of noise (fake sample)
         fake_ts = self.generator(z_disc)
 
@@ -165,17 +174,17 @@ class WGAN_GP:
 
         # Use Python partial to provide loss function with additional
         # 'averaged_samples' argument
-        partial_gp_loss = partial(self.gradient_penalty_loss,
-                                  averaged_samples=interpolated_img)
-        partial_gp_loss.__name__ = 'gradient_penalty'  # Keras requires function names
+        partial_gp_loss = partial(self.gradient_penalty_loss, averaged_samples=interpolated_img)
+        partial_gp_loss.__name__ = "gradient_penalty"  # Keras requires function names
 
-        self.critic_model = Model(inputs=[real_ts, z_disc],
-                                  outputs=[valid, fake, validity_interpolated])
-        self.critic_model.compile(loss=[self.wasserstein_loss,
-                                        self.wasserstein_loss,
-                                        partial_gp_loss],
-                                  optimizer=optimizer,
-                                  loss_weights=[1, 1, 10])
+        self.critic_model = Model(
+            inputs=[real_ts, z_disc], outputs=[valid, fake, validity_interpolated]
+        )
+        self.critic_model.compile(
+            loss=[self.wasserstein_loss, self.wasserstein_loss, partial_gp_loss],
+            optimizer=optimizer,
+            loss_weights=[1, 1, 10],
+        )
         # -------------------------------
         # Construct Computational Graph
         #         for Generator
@@ -186,7 +195,12 @@ class WGAN_GP:
         self.generator.trainable = True
 
         # Sampled noise for input to generator
-        z_gen = Input(shape=(self.ts_length, self.ts_feature,))
+        z_gen = Input(
+            shape=(
+                self.ts_length,
+                self.ts_feature,
+            )
+        )
         # Generate images based of noise
         ts = self.generator(z_gen)
         # Discriminator determines validity
@@ -213,8 +227,7 @@ class WGAN_GP:
         # compute the euclidean norm by squaring ...
         gradients_sqr = K.square(gradients)
         #   ... summing over the rows ...
-        gradients_sqr_sum = K.sum(gradients_sqr,
-                                  axis=np.arange(1, len(gradients_sqr.shape)))
+        gradients_sqr_sum = K.sum(gradients_sqr, axis=np.arange(1, len(gradients_sqr.shape)))
         #   ... and sqrt
         gradient_l2_norm = K.sqrt(gradients_sqr_sum)
         # compute lambda * (1 - ||grad||)^2 still for each single sample
@@ -228,15 +241,23 @@ class WGAN_GP:
     def build_generator(self):
         model = Sequential(
             [
-                LSTM(100, input_shape=self.latent_shape, activation='sigmoid', return_sequences=True),
+                LSTM(
+                    100, input_shape=self.latent_shape, activation="sigmoid", return_sequences=True
+                ),
                 LayerNormalization(),
-                LSTM(100, return_sequences=True, activation='sigmoid'),
-                LeakyReLU(alpha=.2),
+                LSTM(100, return_sequences=True, activation="sigmoid"),
+                LeakyReLU(alpha=0.2),
                 LayerNormalization(),
-                Dense(self.ts_feature)
-            ])
+                Dense(self.ts_feature),
+            ]
+        )
         model.summary()
-        noise = Input(shape=(self.ts_length, self.ts_feature,))
+        noise = Input(
+            shape=(
+                self.ts_length,
+                self.ts_feature,
+            )
+        )
         ts = model(noise)
 
         return Model(noise, ts)
@@ -247,7 +268,7 @@ class WGAN_GP:
                 LSTM(100, input_shape=self.ts_shape, return_sequences=True),
                 LSTM(100, return_sequences=True),
                 Flatten(),
-                Dense(1)
+                Dense(1),
             ]
         )
 
@@ -259,13 +280,11 @@ class WGAN_GP:
         return Model(ts, validity)
 
     def train(self, epochs, batch_size, sample_interval=50):
-
         # Adversarial ground truths
         valid = -np.ones((batch_size, 1))
         fake = np.ones((batch_size, 1))
         dummy = np.zeros((batch_size, 1))  # Dummy gt for gradient penalty
         for epoch in range(epochs):
-
             for _ in range(self.n_critic):
                 # ---------------------
                 #  Train Discriminator
@@ -277,9 +296,7 @@ class WGAN_GP:
                 # Sample generator input
                 noise = np.random.normal(0, 1, (batch_size, self.ts_length, self.ts_feature))
                 # Train the critic
-                d_loss = self.critic_model.train_on_batch(
-                    [imgs, noise],
-                    [valid, fake, dummy])
+                d_loss = self.critic_model.train_on_batch([imgs, noise], [valid, fake, dummy])
 
             # ---------------------
             #  Train Generator
@@ -290,10 +307,10 @@ class WGAN_GP:
             # Plot the progress
             print("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss[0], g_loss))
         time_now = datetime.now().strftime("%Y%m%d_%H-%M-%S")
-        self.generator.compile(optimizer=RMSprop(), loss='binary_crossentropy')
-        self.generator.save(f'./trained_generator/MTSS_GAN_GP{time_now}.h5')
+        self.generator.compile(optimizer=RMSprop(), loss="binary_crossentropy")
+        self.generator.save(f"./trained_generator/MTSS_GAN_GP{time_now}.h5")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     wgan = WGAN_GP(dataset)
     wgan.train(epochs=5000, batch_size=32, sample_interval=100)

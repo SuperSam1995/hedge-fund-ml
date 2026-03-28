@@ -80,4 +80,3 @@ def test_series_transformer_config_validation() -> None:
         SeriesTransformerConfig(embed_dim=8, num_heads=3)
     with pytest.raises(ValueError):
         SeriesTransformerConfig(embed_dim=8, num_heads=2, dropout=-0.1)
-
