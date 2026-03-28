@@ -38,9 +38,7 @@ def _load_config(path: Path) -> AutoencoderConfig:
         raise SystemExit(str(exc)) from exc
 
 
-def _split_data(
-    frame: pd.DataFrame, cfg: AutoencoderConfig
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _split_data(frame: pd.DataFrame, cfg: AutoencoderConfig) -> tuple[pd.DataFrame, pd.DataFrame]:
     data_cfg = cfg.data
     if data_cfg is None:
         raise SystemExit("AutoencoderConfig.data must be defined for training")
@@ -83,9 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     train, val = _split_data(features, config)
 
     result = fit(train, val, config)
-    output_cfg = AutoencoderOutputConfig(
-        root=config.output.root, run_path=result.run_dir
-    )
+    output_cfg = AutoencoderOutputConfig(root=config.output.root, run_path=result.run_dir)
     summary = result.metrics.set_index("split")
     print(f"Autoencoder training complete. Artefacts -> {result.run_dir}")
     print(summary)

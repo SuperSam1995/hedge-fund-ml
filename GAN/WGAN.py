@@ -33,8 +33,8 @@ from sklearn.preprocessing import MinMaxScaler
 def read_csv(loc, date=True):
     df = pd.read_csv(loc)
     if date:
-        df['Date'] = pd.to_datetime(df['Date'])
-        df.set_index('Date', inplace=True)
+        df["Date"] = pd.to_datetime(df["Date"])
+        df.set_index("Date", inplace=True)
     return df
 
 
@@ -49,32 +49,36 @@ def set_seed(seed_value=123):
     import random
 
     import tensorflow as tf
-    os.environ['PYTHONHASHSEED'] = str(seed_value)
+
+    os.environ["PYTHONHASHSEED"] = str(seed_value)
     np.random.seed(seed_value)
     random.seed(seed_value)
     tf.random.set_seed(seed_value)
     from keras import backend as K
-    session_conf = tf.compat.v1.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+
+    session_conf = tf.compat.v1.ConfigProto(
+        intra_op_parallelism_threads=1, inter_op_parallelism_threads=1
+    )
     sess = tf.compat.v1.Session(graph=tf.compat.v1.get_default_graph(), config=session_conf)
     tf.compat.v1.keras.backend.set_session(sess)
     K.set_session(sess)
 
 
 def random_sampling(dataset, n_sample, window):
-    '''
+    """
     implicitly assuming there is no calendar effect.
     :param dataset: np.ndarray
     :param n_sample:
     :param window:
     :return:
-    '''
+    """
     isinstance(dataset, np.ndarray)
     step = 0
     res = []
     while step < n_sample:
         step += 1
         randidx = randint(0, dataset.shape[0] - window)
-        res.append(dataset[randidx:window + randidx])
+        res.append(dataset[randidx : window + randidx])
     # label as real data
     # label = np.ones(n_sample)
     # return np.array(res), label
@@ -83,10 +87,10 @@ def random_sampling(dataset, n_sample, window):
 
 set_seed()
 
-hfd = read_csv('../cleaned_data/hfd.csv')
-factor_etf_data = read_csv('../cleaned_data/factor_etf_data.csv')
-hfd_fullname = dic_read('../cleaned_data/hfd_fullname.pkl')
-factor_etf_name = dic_read('../cleaned_data/factor_etf_name.pkl')
+hfd = read_csv("../cleaned_data/hfd.csv")
+factor_etf_data = read_csv("../cleaned_data/factor_etf_data.csv")
+hfd_fullname = dic_read("../cleaned_data/hfd_fullname.pkl")
+factor_etf_name = dic_read("../cleaned_data/factor_etf_name.pkl")
 
 all_data_name = {**factor_etf_name, **hfd_fullname}
 
@@ -114,15 +118,18 @@ class WGAN:
 
         # Build and compile the critic
         self.critic = self.build_critic()
-        self.critic.compile(loss=self.wasserstein_loss,
-                            optimizer=optimizer,
-                            metrics=['accuracy'])
+        self.critic.compile(loss=self.wasserstein_loss, optimizer=optimizer, metrics=["accuracy"])
 
         # Build the generator
         self.generator = self.build_generator()
 
         # The generator takes noise as input and generated imgs
-        z = Input(shape=(self.ts_length, self.ts_feature,))
+        z = Input(
+            shape=(
+                self.ts_length,
+                self.ts_feature,
+            )
+        )
         ts = self.generator(z)
 
         # For the combined model we will only train the generator
@@ -133,9 +140,7 @@ class WGAN:
 
         # The combined model  (stacked generator and critic)
         self.combined = Model(z, valid)
-        self.combined.compile(loss=self.wasserstein_loss,
-                              optimizer=optimizer,
-                              metrics=['accuracy'])
+        self.combined.compile(loss=self.wasserstein_loss, optimizer=optimizer, metrics=["accuracy"])
 
     def wasserstein_loss(self, y_true, y_pred):
         return K.mean(y_true * y_pred)
@@ -143,17 +148,27 @@ class WGAN:
     def build_generator(self):
         model = Sequential(
             [
-                Dense(100, input_shape=self.latent_shape, activation='sigmoid', ),
-                LeakyReLU(alpha=.2),
+                Dense(
+                    100,
+                    input_shape=self.latent_shape,
+                    activation="sigmoid",
+                ),
+                LeakyReLU(alpha=0.2),
                 LayerNormalization(),
-                Dense(100, activation='sigmoid'),
-                LeakyReLU(alpha=.2),
+                Dense(100, activation="sigmoid"),
+                LeakyReLU(alpha=0.2),
                 LayerNormalization(),
-                Dense(self.ts_feature)
-            ])
+                Dense(self.ts_feature),
+            ]
+        )
         model.summary()
 
-        noise = Input(shape=(self.ts_length, self.ts_feature,))
+        noise = Input(
+            shape=(
+                self.ts_length,
+                self.ts_feature,
+            )
+        )
         img = model(noise)
 
         return Model(noise, img)
@@ -161,13 +176,19 @@ class WGAN:
     def build_critic(self):
         model = Sequential(
             [
-                Dense(100, input_shape=self.ts_shape, activation=None, ),
+                Dense(
+                    100,
+                    input_shape=self.ts_shape,
+                    activation=None,
+                ),
                 LeakyReLU(alpha=0.2),
                 LayerNormalization(),
                 Dense(100, activation=None),
                 LeakyReLU(alpha=0.2),
                 LayerNormalization(),
-                Dense(1)  # we dont do sigmoid activation because critic output is supposed to be 1,-1
+                Dense(
+                    1
+                ),  # we dont do sigmoid activation because critic output is supposed to be 1,-1
             ]
         )
         model.summary()
@@ -178,15 +199,12 @@ class WGAN:
         return Model(ts, validity)
 
     def train(self, epochs, batch_size=128, sample_interval=50):
-
         # Adversarial ground truths
         valid = -np.ones((batch_size, 1))
         fake = np.ones((batch_size, 1))
 
         for epoch in range(epochs):
-
             for _ in range(self.n_critic):
-
                 # ---------------------
                 #  Train Discriminator
                 # ---------------------
@@ -221,11 +239,12 @@ class WGAN:
             # Plot the progress
             print("%d [D loss: %f] [G loss: %f]" % (epoch, 1 - d_loss[0], 1 - g_loss[0]))
         time_now = datetime.now().strftime("%Y%m%d_%H-%M-%S")
-        self.generator.compile(optimizer=RMSprop(learning_rate=0.00005),
-                               loss='binary_crossentropy')  # without compile, we cannot save model. Formality
-        self.generator.save(f'./trained_generator/WGAN{time_now}.h5')
+        self.generator.compile(
+            optimizer=RMSprop(learning_rate=0.00005), loss="binary_crossentropy"
+        )  # without compile, we cannot save model. Formality
+        self.generator.save(f"./trained_generator/WGAN{time_now}.h5")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     wgan = WGAN(dataset)
     wgan.train(epochs=5000, batch_size=32, sample_interval=50)

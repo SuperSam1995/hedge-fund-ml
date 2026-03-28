@@ -61,6 +61,7 @@ def _load_metrics(path: Path) -> pd.DataFrame:
         return pd.read_csv(path)
     raise ValueError(f"Unsupported metrics format: {suffix}")
 
+
 metrics_df = _load_metrics(metrics_path)
 metrics_df.index.name = metrics_df.index.name or "metric"
 metrics_df.columns = [str(col) for col in metrics_df.columns]
@@ -73,6 +74,7 @@ display(metrics_df)
 def _iter_figures(directory: Path) -> Iterable[Path]:
     for suffix in ("*.png", "*.jpg", "*.jpeg", "*.svg"):
         yield from sorted(directory.glob(suffix))
+
 
 figure_paths = list(_iter_figures(figures_dir))
 if figure_paths:

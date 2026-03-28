@@ -20,7 +20,9 @@ def test_transformer_module_single_batch_forward_backward() -> None:
     torch.manual_seed(0)
     module = _load_transformer_module()
 
-    model_cfg = module.TransformerModelConfig(d_model=8, n_heads=2, depth=1, dropout=0.0, attn_bias=False)
+    model_cfg = module.TransformerModelConfig(
+        d_model=8, n_heads=2, depth=1, dropout=0.0, attn_bias=False
+    )
     train_cfg = module.TrainingConfig(
         batch_size=4,
         max_epochs=1,

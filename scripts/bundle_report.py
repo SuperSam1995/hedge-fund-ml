@@ -98,7 +98,7 @@ def main(out_dir: str):
         f"""---
 title: Hedge Fund Strategy Replication — Run {run_id}
 date: {run_id}
-commit: {ctx['git_commit']}
+commit: {ctx["git_commit"]}
 ---
 
 # 1. Introduction

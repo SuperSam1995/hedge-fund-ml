@@ -116,10 +116,16 @@ class ReturnsBuilder:
             target_returns = self._compute_returns(target)
 
         forward = self._forward_target(target_returns)
-        dataset = pd.concat([lagged, forward], axis=1, join="inner")
-        if self.config.dropna:
-            dataset = dataset.dropna(how="any")
 
-        feature_cols = dataset.loc[:, dataset.columns.get_level_values(1).str.startswith("lag_")]
-        target_cols = dataset.loc[:, dataset.columns.get_level_values(1).str.startswith("fwd_")]
+        # ⚡ Bolt Optimization: Avoid expensive concat and str.startswith column searches
+        # Align indexes directly and use bitwise operations for dropping NaNs
+        idx = lagged.index.intersection(forward.index)
+        feature_cols = lagged.loc[idx]
+        target_cols = forward.loc[idx]
+
+        if self.config.dropna:
+            valid_mask = feature_cols.notna().all(axis=1) & target_cols.notna().all(axis=1)
+            feature_cols = feature_cols.loc[valid_mask]
+            target_cols = target_cols.loc[valid_mask]
+
         return ReturnsDataset(features=feature_cols, target=target_cols)
