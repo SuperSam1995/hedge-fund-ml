@@ -212,7 +212,14 @@ def _build_returns_panel(panel: pd.DataFrame) -> pd.DataFrame:
 
 def _prepare_metrics_long(metrics_frame: pd.DataFrame) -> pd.DataFrame:
     records: list[dict[str, object]] = []
-    for label, row in metrics_frame.iterrows():
+
+    # ⚡ Bolt Optimization: Replace iterrows() with zip over index and to_dict('records')
+    # Iterating over Pandas DataFrames using iterrows() is a performance bottleneck due to the
+    # overhead of creating a Series object for each row.
+    labels = metrics_frame.index.tolist()
+    row_dicts = metrics_frame.to_dict(orient="records")
+
+    for label, row_dict in zip(labels, row_dicts, strict=False):
         if isinstance(label, tuple):
             role = _normalise_label(label[0])
             strategy = _combine_parts(label[1:])
@@ -226,7 +233,7 @@ def _prepare_metrics_long(metrics_frame: pd.DataFrame) -> pd.DataFrame:
         if role not in {"replica", "target"}:
             continue
         record = {"strategy": strategy, "role": role}
-        record.update(row.to_dict())
+        record.update(row_dict)
         records.append(record)
     if not records:
         return pd.DataFrame(columns=["strategy", "role"])
