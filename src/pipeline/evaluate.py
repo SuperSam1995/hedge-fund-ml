@@ -254,9 +254,13 @@ def _prepare_returns_long(returns_panel: pd.DataFrame) -> pd.DataFrame:
     stacked = stacked.rename(columns={role_col: "role"})
     strategy_cols = [col for col in stacked.columns if col not in {"date", "role", "return"}]
     if strategy_cols:
-        stacked["strategy"] = stacked[strategy_cols].apply(
-            lambda row: _combine_parts([value for value in row if pd.notna(value)]), axis=1
-        )
+        # ⚡ Bolt Optimization: Replace apply(axis=1) with list comprehension over itertuples
+        # apply(axis=1) on a DataFrame is notoriously slow. itertuples(name=None) gives raw tuples
+        # which are much faster to iterate and process than constructing a Pandas Series per row.
+        records = stacked[strategy_cols].itertuples(index=False, name=None)
+        stacked["strategy"] = [
+            _combine_parts([value for value in row if pd.notna(value)]) for row in records
+        ]
     else:
         stacked["strategy"] = ""
     result = stacked[["date", "strategy", "role", "return"]].copy()
@@ -278,10 +282,13 @@ def _prepare_weights_long(weights: pd.DataFrame) -> pd.DataFrame:
         col for col in stacked.columns if col not in {"date", strategy_col, "weight", "strategy"}
     ]
     if extra_cols:
-        stacked["ticker"] = stacked[extra_cols].apply(
-            lambda row: _combine_parts([value for value in row if pd.notna(value)]),
-            axis=1,
-        )
+        # ⚡ Bolt Optimization: Replace apply(axis=1) with list comprehension over itertuples
+        # apply(axis=1) on a DataFrame is notoriously slow. itertuples(name=None) gives raw tuples
+        # which are much faster to iterate and process than constructing a Pandas Series per row.
+        records = stacked[extra_cols].itertuples(index=False, name=None)
+        stacked["ticker"] = [
+            _combine_parts([value for value in row if pd.notna(value)]) for row in records
+        ]
     else:
         stacked["ticker"] = ""
     result = stacked[["date", "strategy", "ticker", "weight"]].copy()
