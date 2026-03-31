@@ -9,3 +9,7 @@
 ## 2024-05-24 - Pandas DataFrame apply(axis=1) Overhead
 **Learning:** Using `apply(..., axis=1)` to process rows in a Pandas DataFrame is surprisingly slow because it instantiates a Pandas Series for every single row before passing it to the function. When vectorization is not an option (e.g. for row-wise string concatenation), replacing `df.apply(lambda row: func(row), axis=1)` with a list comprehension iterating over `df.itertuples(index=False, name=None)` yields a ~3x speedup.
 **Action:** When performing row-by-row string operations or non-vectorizable logic, avoid `.apply(..., axis=1)`. Use `itertuples(index=False, name=None)` coupled with a list comprehension instead.
+
+## 2024-05-24 - Precomputing redundant array multiplications and extracting diagonal optimally
+**Learning:** `np.diag(2D_array)` allocates a new 1D array by copying the diagonal. For a large covariance matrix, this wastes time and memory compared to `2D_array.diagonal()`, which simply returns a read-only view. Also, in complex math formulas like `phi * new_arr * diag * delta - old_arr * diag * delta - 0.5 * np.square(delta) * diag`, `diag * delta` is computed multiple times which introduces unnecessary overhead.
+**Action:** When working with large matrices, extract the diagonal via `arr.diagonal()` to return a view without copying. Look out for common element-wise operations and factor them out (`common = diag * delta`).

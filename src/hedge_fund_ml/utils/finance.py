@@ -125,11 +125,15 @@ def price_impact(
         raise ValueError("impact_scale and phi must be non-negative")
 
     covariance_arr = np.asarray(covariance, dtype=np.float64)
-    diag = np.sqrt(np.diag(covariance_arr)) * impact_scale
+    # Extracts diagonal directly without allocating a 2D intermediate
+    diag = np.sqrt(covariance_arr.diagonal()) * impact_scale
     old_arr = np.asarray(old_weights, dtype=np.float64)
     new_arr = np.asarray(new_weights, dtype=np.float64)
     delta = old_arr - new_arr
-    impact = phi * new_arr * diag * delta - old_arr * diag * delta - 0.5 * np.square(delta) * diag
+
+    # Precompute common term to save multiple array multiplications
+    common = diag * delta
+    impact = common * (phi * new_arr - old_arr - 0.5 * delta)
     return cast(NDArray[np.float64], impact)
 
 
