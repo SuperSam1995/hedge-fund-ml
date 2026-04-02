@@ -338,7 +338,8 @@ def transform(
     model = keras.models.load_model(run_dir / "model.keras")
     encoder = keras.Model(inputs=model.input, outputs=model.get_layer("latent").output)
     scaled = scaler.transform(frame.to_numpy(dtype=np.float32))
-    latent = encoder.predict(scaled, verbose=0)
+    # Bolt: Direct call is significantly faster than predict()
+    latent = encoder(scaled, training=False).numpy()
     columns = [f"latent_{idx}" for idx in range(latent.shape[1])]
     return pd.DataFrame(latent, index=frame.index, columns=columns)
 

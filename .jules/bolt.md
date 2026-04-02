@@ -15,3 +15,7 @@
 **Learning:** `DataFrame.apply(np.log1p)` incurs heavy Python overhead when applied over thousands of rows or numerous columns, because it dispatches row-by-row or column-by-column. Instead, `np.log1p(DataFrame)` passes the entire C-contiguous memory block to NumPy's compiled ufunc, maintaining pandas indexing and vastly outperforming `.apply()`. Additionally, iterating over columns to apply string transformations (`.astype(str).str.rstrip('%')` and `pd.to_numeric()`) is significantly slower than using `.replace('%', '', regex=True)` on the whole DataFrame followed by a single `.apply(pd.to_numeric)`.
 
 **Action:** Whenever applying standard mathematical functions to pandas DataFrames, check if a NumPy universal function (ufunc) can be applied directly to the DataFrame. Avoid `.apply()` unless custom Python logic is required. Replace loops over DataFrame columns with vectorized operations across the entire DataFrame structure where applicable.
+
+## 2024-05-24 - [Optimize Keras Inference]
+ **Learning:** Using `model.predict()` has substantial overhead for small batches or within tight loops due to dataset creation, batching, and callback setup.
+ **Action:** For small-batch or high-frequency inference, use direct calls like `model(data, training=False)` instead of `model.predict(data, verbose=0)`.

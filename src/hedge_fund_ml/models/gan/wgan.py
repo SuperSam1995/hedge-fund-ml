@@ -279,7 +279,8 @@ def train_gan(data: pd.DataFrame | np.ndarray, cfg: WGANConfig) -> WGANArtifacts
                 noise = rng.normal(size=(batch_size, cfg.model.latent_dim)).astype(np.float32)
 
                 critic_loss_real = models.critic.train_on_batch(real_samples, valid)
-                generated_samples = models.generator.predict(noise, verbose=0)
+                # Bolt: Direct call is faster than predict() for small batches in loops
+                generated_samples = models.generator(noise, training=False)
                 critic_loss_fake = models.critic.train_on_batch(generated_samples, fake)
                 critic_loss = 0.5 * (float(critic_loss_real) + float(critic_loss_fake))
                 critic_losses.append(critic_loss)
@@ -367,7 +368,8 @@ def sample(n: int, cfg: WGANConfig) -> np.ndarray:
     set_global_seed(cfg.seed)
     generator, scaler, feature_shape = _resolve_generator(cfg)
     noise = np.random.normal(size=(n, cfg.model.latent_dim)).astype(np.float32)
-    synthetic = generator.predict(noise, verbose=0)
+    # Bolt: Direct call avoids predict() overhead
+    synthetic = generator(noise, training=False).numpy()
     restored = cast(np.ndarray, scaler.inverse_transform(synthetic))
     if feature_shape:
         reshaped = restored.reshape((n, *feature_shape))
