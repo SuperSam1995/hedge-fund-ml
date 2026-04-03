@@ -80,9 +80,9 @@ def sortino_ratio(
     periods_per_year: int = 12,
 ) -> float:
     series = _as_float_series(returns)
-    excess = series - risk_free_rate / periods_per_year
-    downside = excess.copy()
-    downside[downside > 0] = 0
+    excess = series.to_numpy() - risk_free_rate / periods_per_year
+    # ⚡ Bolt Optimization: Use numpy clip instead of pandas series copying and boolean indexing
+    downside = np.clip(excess, a_min=None, a_max=0)
     downside_std = downside.std(ddof=0)
     if downside_std <= np.finfo(float).eps:
         return np.nan
@@ -94,11 +94,10 @@ def sortino_ratio(
 def max_drawdown(returns: pd.Series | pd.DataFrame) -> float:
     series = _as_float_series(returns)
     cumulative_values = np.cumprod(1.0 + series.to_numpy())
-    cumulative = pd.Series(cumulative_values, index=series.index, dtype=float)
-    peaks = cumulative.cummax()
-    drawdowns = (cumulative - peaks) / peaks
-    minimum = drawdowns.min()
-    return float(minimum)
+    # ⚡ Bolt Optimization: Use numpy maximum accumulate instead of pandas cummax for max drawdown
+    peaks = np.maximum.accumulate(cumulative_values)
+    drawdowns = (cumulative_values - peaks) / peaks
+    return float(np.min(drawdowns))
 
 
 def turnover(weights: pd.DataFrame) -> float:
@@ -128,8 +127,10 @@ def omega_ratio(
     threshold: float = 0.0,
 ) -> float:
     series = _as_float_series(returns)
-    gains = (series - threshold).clip(lower=0)
-    losses = (threshold - series).clip(lower=0)
+    # ⚡ Bolt Optimization: Use numpy clip instead of pandas series clip
+    vals = series.to_numpy()
+    gains = np.clip(vals - threshold, a_min=0, a_max=None)
+    losses = np.clip(threshold - vals, a_min=0, a_max=None)
     loss_sum = losses.sum()
     if loss_sum == 0:
         return np.inf
