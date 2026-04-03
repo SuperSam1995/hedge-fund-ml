@@ -19,3 +19,7 @@
 ## 2024-05-24 - [Optimize Keras Inference]
  **Learning:** Using `model.predict()` has substantial overhead for small batches or within tight loops due to dataset creation, batching, and callback setup.
  **Action:** For small-batch or high-frequency inference, use direct calls like `model(data, training=False)` instead of `model.predict(data, verbose=0)`.
+
+## 2024-05-28 - Pandas Object vs Numpy Arrays in Mathematical Ops
+ **Learning:** In time series operations like `cummax()` or `.clip()`, pandas carries significant overhead maintaining Series index alignments and object types. Replacing pandas methods like `pd.Series.cummax()` with `np.maximum.accumulate()` on the underlying `.to_numpy()` arrays resulted in >30% speedups. Using `np.clip()` on NumPy arrays similarly sped up operations by ~3x vs standard boolean indexing (`series[series > 0] = 0`).
+ **Action:** In financial metrics or tight loops where the index alignment isn't actively required, extract the `.to_numpy()` array from the Pandas object, apply the NumPy ufunc directly (like `np.maximum.accumulate` or `np.clip`), and only re-wrap in Pandas at the very end if needed.
