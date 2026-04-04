@@ -23,3 +23,7 @@
 ## 2024-05-28 - Pandas Object vs Numpy Arrays in Mathematical Ops
  **Learning:** In time series operations like `cummax()` or `.clip()`, pandas carries significant overhead maintaining Series index alignments and object types. Replacing pandas methods like `pd.Series.cummax()` with `np.maximum.accumulate()` on the underlying `.to_numpy()` arrays resulted in >30% speedups. Using `np.clip()` on NumPy arrays similarly sped up operations by ~3x vs standard boolean indexing (`series[series > 0] = 0`).
  **Action:** In financial metrics or tight loops where the index alignment isn't actively required, extract the `.to_numpy()` array from the Pandas object, apply the NumPy ufunc directly (like `np.maximum.accumulate` or `np.clip`), and only re-wrap in Pandas at the very end if needed.
+
+## 2025-05-18 - Sliding window operations are a massive bottleneck
+**Learning:** Python-level loops inside list comprehensions that slice 2D numpy arrays into rolling windows using `np.stack([data[start:start+window]...])` are surprisingly slow. By replacing it with advanced indexing over broadcasted row indices (`data[indices[:, None] + np.arange(window)]`), the execution time drops up to 40%.
+**Action:** Use vectorized advanced indexing with broadcasting instead of looping when slicing repetitive windows out of numpy arrays. It avoids python loop overhead and is dimension-safe.
