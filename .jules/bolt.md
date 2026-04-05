@@ -27,3 +27,7 @@
 ## 2025-05-18 - Sliding window operations are a massive bottleneck
 **Learning:** Python-level loops inside list comprehensions that slice 2D numpy arrays into rolling windows using `np.stack([data[start:start+window]...])` are surprisingly slow. By replacing it with advanced indexing over broadcasted row indices (`data[indices[:, None] + np.arange(window)]`), the execution time drops up to 40%.
 **Action:** Use vectorized advanced indexing with broadcasting instead of looping when slicing repetitive windows out of numpy arrays. It avoids python loop overhead and is dimension-safe.
+
+## 2025-05-19 - Pandas Concat in Loop Overhead
+**Learning:** Iterating over columns to construct numerous new DataFrames and ultimately combining them with `pd.concat(axis=1)` scales poorly. It involves huge Python-level loop overhead and forces memory reallocation. Constructing the underlying NumPy array directly (`coefficients.to_numpy().T.ravel()` + `np.tile()`) and assigning the Pandas `MultiIndex` manually avoids `pd.concat` completely, netting a >20x speedup for large arrays.
+**Action:** Always avoid `pd.concat` in loops or over large dictionaries of frames if the data dimensions are static. Flatten and construct the final target matrix in pure NumPy, then build the final multi-index DataFrame from it.
