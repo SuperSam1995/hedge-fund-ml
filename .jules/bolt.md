@@ -27,3 +27,6 @@
 ## 2025-05-18 - Sliding window operations are a massive bottleneck
 **Learning:** Python-level loops inside list comprehensions that slice 2D numpy arrays into rolling windows using `np.stack([data[start:start+window]...])` are surprisingly slow. By replacing it with advanced indexing over broadcasted row indices (`data[indices[:, None] + np.arange(window)]`), the execution time drops up to 40%.
 **Action:** Use vectorized advanced indexing with broadcasting instead of looping when slicing repetitive windows out of numpy arrays. It avoids python loop overhead and is dimension-safe.
+## 2024-05-24 - [Array creation with sliding_window_view]
+ **Learning:** Using `numpy.lib.stride_tricks.sliding_window_view` is significantly faster than using a python loop to generate rolling datasets over matrices.
+ **Action:** Prioritize `sliding_window_view` in time-series processing blocks instead of standard python `for` loops.
