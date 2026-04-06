@@ -223,25 +223,22 @@ def make_windows(X: pd.DataFrame, y: pd.DataFrame, lookback: int, horizon: int) 
     timestamps = X.index
 
     n_windows = n_obs - lookback - horizon + 1
-    n_features = X.shape[1]
-    n_targets = y.shape[1]
 
-    features = np.empty((n_windows, lookback, n_features), dtype=np.float64)
-    targets = np.empty((n_windows, n_targets), dtype=np.float64)
-    feature_index = []
-    target_index = []
+    # ⚡ Bolt Optimization: Use numpy sliding_window_view instead of python loop for feature windows
+    from numpy.lib.stride_tricks import sliding_window_view
+    strided_features = sliding_window_view(X_values, window_shape=lookback, axis=0)
+    strided_features = np.swapaxes(strided_features, 1, 2)
+    features = strided_features[:n_windows].copy()
 
-    for start in range(n_windows):
-        end = start + lookback
-        target_pos = end + horizon - 1
-        features[start] = X_values[start:end]
-        targets[start] = y_values[target_pos]
-        feature_index.append(timestamps[end - 1])
-        target_index.append(timestamps[target_pos])
+    target_indices = np.arange(lookback + horizon - 1, n_obs)
+    targets = y_values[target_indices]
+
+    feature_index = timestamps[lookback - 1 : lookback - 1 + n_windows]
+    target_index = timestamps[target_indices]
 
     return WindowedDataset(
         features=features,
         targets=targets,
-        feature_index=pd.DatetimeIndex(feature_index),
-        target_index=pd.DatetimeIndex(target_index),
+        feature_index=feature_index,
+        target_index=target_index,
     )
