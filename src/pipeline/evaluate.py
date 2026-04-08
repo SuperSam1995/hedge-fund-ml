@@ -137,8 +137,10 @@ def _select_series(frame: pd.DataFrame, series: str) -> pd.DataFrame:
 
 
 def _to_float_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    numeric = cast(pd.DataFrame, frame.apply(pd.to_numeric, errors="raise"))
-    return numeric.astype(float)
+    # ⚡ Bolt Optimization: Replace apply(pd.to_numeric) with direct astype(float)
+    # Applying pd.to_numeric iteratively across columns is slow.
+    # Casting the entire DataFrame memory block directly with .astype(float) is vastly faster.
+    return frame.astype(float)
 
 
 def _normalise_label(label: object) -> str:
