@@ -17,6 +17,9 @@ dependencies = [
     "pyyaml>=6.0",
     "statsmodels>=0.14",
     "Jinja2>=3.1",
+    "tensorflow>=2.21.0",
+    "cvxpy>=1.7.5",
+    "scikit-learn>=1.7.2",
 ]
 
 [dependency-groups]
