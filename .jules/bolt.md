@@ -30,3 +30,7 @@
 ## 2024-05-24 - [Array creation with sliding_window_view]
  **Learning:** Using `numpy.lib.stride_tricks.sliding_window_view` is significantly faster than using a python loop to generate rolling datasets over matrices.
  **Action:** Prioritize `sliding_window_view` in time-series processing blocks instead of standard python `for` loops.
+
+## 2024-05-28 - Pandas Object vs Numpy Arrays in Series diffs
+**Learning:** Using Pandas `DataFrame.diff().abs().sum(axis=1)` carries significant object creation and alignment overhead. Converting the DataFrame to a NumPy array (`.to_numpy()`) and applying `np.diff` with `np.abs` achieves over a 2x speedup.
+**Action:** When calculating differences across rows or columns in performance critical sections, extract the underlying NumPy array and use `np.diff` to avoid Pandas object overhead.
