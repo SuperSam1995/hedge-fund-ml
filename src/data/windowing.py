@@ -229,6 +229,7 @@ def make_windows(X: pd.DataFrame, y: pd.DataFrame, lookback: int, horizon: int) 
 
     # ⚡ Bolt Optimization: Use numpy sliding_window_view instead of python loop for feature windows
     from numpy.lib.stride_tricks import sliding_window_view
+
     strided_features = sliding_window_view(X_values, window_shape=lookback, axis=0)
     strided_features = np.swapaxes(strided_features, 1, 2)
     features = strided_features[:n_windows].copy()

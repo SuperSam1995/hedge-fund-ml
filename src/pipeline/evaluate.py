@@ -7,7 +7,6 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
