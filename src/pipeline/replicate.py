@@ -92,18 +92,17 @@ def _expand_weights(model: HKSpanModel, index: pd.Index) -> pd.DataFrame:
     if model.state is None:  # pragma: no cover - defensive
         raise RuntimeError("HKSpanModel must be fitted before extracting weights")
     coefficients = model.state.coefficients
-    expanded: dict[str, pd.DataFrame] = {}
-    for target in coefficients.columns:
-        panel = pd.DataFrame(
-            np.tile(coefficients[target].to_numpy(), (len(index), 1)),
-            index=index,
-            columns=coefficients.index,
-        )
-        expanded[str(target)] = panel
-    weights = pd.concat(expanded, axis=1)
-    level_names = ["target", *coefficients.index.names]
-    weights.columns = weights.columns.set_names(level_names)
-    return weights
+
+    # ⚡ Bolt Optimization: Vectorize tiling to bypass loop overhead and expensive pd.concat
+    # Converts coefficients to array, flattens, and tiles in one step to build the full data matrix.
+    data = np.tile(coefficients.to_numpy().T.flatten(), (len(index), 1))
+
+    cols = pd.MultiIndex.from_product(
+        [coefficients.columns.astype(str), coefficients.index],
+        names=["target", *coefficients.index.names]
+    )
+
+    return pd.DataFrame(data, index=index, columns=cols)
 
 
 def build_weights_panel(artifacts: FeatureArtifacts) -> pd.DataFrame:

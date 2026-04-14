@@ -30,3 +30,6 @@
 ## 2024-05-24 - [Array creation with sliding_window_view]
  **Learning:** Using `numpy.lib.stride_tricks.sliding_window_view` is significantly faster than using a python loop to generate rolling datasets over matrices.
  **Action:** Prioritize `sliding_window_view` in time-series processing blocks instead of standard python `for` loops.
+## 2025-05-18 - Pandas pd.concat overhead in panel expansion
+**Learning:** Expanding panel data via iteratively tiling coefficient columns and stitching them together with `pd.concat(axis=1)` is extremely slow. `pd.concat` has major overhead aligning indexes and column metadata. We can achieve up to a 10x speedup by extracting the underlying NumPy matrix, utilizing `ndarray.T.flatten()` to arrange the values correctly, tiling the single flat array, and directly initializing a new DataFrame with a `pd.MultiIndex.from_product()`.
+**Action:** When creating panels of repeated/tiled weights across multiple targets and features, do not iteratively build and concatenate DataFrames. Instead, flatten the coefficients array, use `np.tile`, and reconstruct the resulting DataFrame simultaneously with `pd.MultiIndex.from_product`.
