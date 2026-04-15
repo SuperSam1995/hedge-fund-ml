@@ -99,7 +99,7 @@ def _expand_weights(model: HKSpanModel, index: pd.Index) -> pd.DataFrame:
 
     cols = pd.MultiIndex.from_product(
         [coefficients.columns.astype(str), coefficients.index],
-        names=["target", *coefficients.index.names]
+        names=["target", *coefficients.index.names],
     )
 
     return pd.DataFrame(data, index=index, columns=cols)
