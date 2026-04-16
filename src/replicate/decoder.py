@@ -51,6 +51,35 @@ class WeightDecoder:
             "max_iter": 20_000,
         }
 
+        # Internal state for parameterized problem caching
+        self._n_assets: int | None = None
+        self._param_rhat: cp.Parameter | None = None
+        self._param_yhat: cp.Parameter | None = None
+        self._param_prev: cp.Parameter | None = None
+        self._var_weights: cp.Variable | None = None
+        self._problem: cp.Problem | None = None
+
+    def _setup_problem(self, n_assets: int) -> None:
+        """Compile the parameterized CVXPY problem once for significant speedups."""
+        self._n_assets = n_assets
+        self._param_rhat = cp.Parameter(n_assets)
+        self._param_yhat = cp.Parameter()
+        self._param_prev = cp.Parameter(n_assets)
+        self._var_weights = cp.Variable(n_assets)
+
+        fit = cp.sum_squares(self._param_rhat @ self._var_weights - self._param_yhat)
+        turnover = self.lambda_to * cp.sum_squares(self._var_weights - self._param_prev)
+        ridge = self.lambda_l2 * cp.sum_squares(self._var_weights)
+        objective = cp.Minimize(fit + turnover + ridge)
+
+        constraints = []
+        if self.long_only:
+            constraints.extend([self._var_weights >= 0, cp.sum(self._var_weights) <= self.leverage])
+        else:
+            constraints.append(cp.norm1(self._var_weights) <= self.leverage)
+
+        self._problem = cp.Problem(objective, constraints)
+
     def solve_once(
         self,
         rhat_etf: ArrayLike,
@@ -67,28 +96,26 @@ class WeightDecoder:
         if prev.shape != (n_assets,):
             raise ValueError("w_prev must have the same shape as rhat_etf")
 
-        weights = cp.Variable(n_assets)
-        fit = cp.sum_squares(rhat @ weights - float(yhat))
-        turnover = self.lambda_to * cp.sum_squares(weights - prev)
-        ridge = self.lambda_l2 * cp.sum_squares(weights)
-        objective = cp.Minimize(fit + turnover + ridge)
+        # ⚡ Bolt Optimization: Lazy compilation and parameterization of CVXPY problem
+        # Compiling cp.Problem is extremely slow. Using cp.Parameter allows us to compile it
+        # exactly once per asset dimension size and just update parameter values thereafter.
+        if self._n_assets != n_assets:
+            self._setup_problem(n_assets)
 
-        constraints = []
-        if self.long_only:
-            constraints.extend([weights >= 0, cp.sum(weights) <= self.leverage])
-        else:
-            constraints.append(cp.norm1(weights) <= self.leverage)
+        self._param_rhat.value = rhat
+        self._param_yhat.value = float(yhat)
+        self._param_prev.value = prev
+        self._var_weights.value = prev.copy()
 
-        problem = cp.Problem(objective, constraints)
-        weights.value = prev.copy()
-        problem.solve(solver=getattr(cp, self.solver), **self.solver_opts)
+        self._problem.solve(solver=getattr(cp, self.solver), **self.solver_opts)
 
-        if weights.value is None or problem.status not in {cp.OPTIMAL, cp.OPTIMAL_INACCURATE}:
-            raise RuntimeError(f"Decoder failed: status={problem.status}")
+        valid_statuses = {cp.OPTIMAL, cp.OPTIMAL_INACCURATE}
+        if self._var_weights.value is None or self._problem.status not in valid_statuses:
+            raise RuntimeError(f"Decoder failed: status={self._problem.status}")
 
-        solution = np.asarray(weights.value, dtype=float)
+        solution = np.asarray(self._var_weights.value, dtype=float)
         return DecoderResult(
             weights=solution,
-            objective_value=float(problem.value),
-            status=problem.status,
+            objective_value=float(self._problem.value),
+            status=self._problem.status,
         )

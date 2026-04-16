@@ -37,3 +37,7 @@
 ## 2026-04-15 - Pandas object creation overhead in iterative mathematical operations
 **Learning:** In operations calculating metric differences and sums over DataFrames (like `.diff().abs().sum()`), pandas has significant overhead handling object creation, column indexing, and missing data for each intermediate operation step. Bypassing pandas entirely by running NumPy methods `np.abs(np.diff(vals, axis=0)).sum(axis=1)` directly on the DataFrame values achieves a >2x performance improvement with zero behavior change.
 **Action:** For simple mathematical aggregations or multi-step operations over DataFrame rows or columns, consider retrieving the underlying matrix via `.to_numpy(dtype=float)` and executing the sequence directly via NumPy ufuncs before returning the result.
+
+## 2024-05-29 - CVXPY problem compilation overhead
+**Learning:** Re-compiling a CVXPY `Problem` object (i.e., `cp.Problem(objective, constraints)`) on every iteration inside a loop is incredibly slow. By parameterizing the variable data inputs using `cp.Parameter()`, compiling the problem once, and merely updating `.value` on those parameters per iteration, we achieve a ~4x reduction in solve times with no impact on the solution.
+**Action:** When solving convex optimizations in a loop, always use `cp.Parameter` for inputs that change across iterations, initialize the `cp.Problem` once, and update the parameter values rather than re-instantiating the entire problem.
