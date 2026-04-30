@@ -41,3 +41,6 @@
 ## 2024-05-29 - CVXPY problem compilation overhead
 **Learning:** Re-compiling a CVXPY `Problem` object (i.e., `cp.Problem(objective, constraints)`) on every iteration inside a loop is incredibly slow. By parameterizing the variable data inputs using `cp.Parameter()`, compiling the problem once, and merely updating `.value` on those parameters per iteration, we achieve a ~4x reduction in solve times with no impact on the solution.
 **Action:** When solving convex optimizations in a loop, always use `cp.Parameter` for inputs that change across iterations, initialize the `cp.Problem` once, and update the parameter values rather than re-instantiating the entire problem.
+## 2024-05-18 - Fast index set difference and direct column access in Pandas
+**Learning:** In hot loops like `predict` methods, standard Pandas operations like `.loc` and `set(A) - set(B)` have significant overhead. Direct slicing `df[columns]` is faster than `df.loc[:, columns]`. Using `set(A).difference(B)` avoids creating a temporary set for `B` compared to `set(A) - set(B)`. In-place addition `+=` avoids array reallocation compared to `a = a + b`.
+**Action:** Always prefer direct slicing for column access. Use `difference` for sets if one operand is already an iterable. Use in-place operations (`+=`, `*=`) on newly allocated numpy arrays to save memory and time.
