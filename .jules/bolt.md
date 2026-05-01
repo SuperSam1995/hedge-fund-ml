@@ -41,3 +41,7 @@
 ## 2024-05-29 - CVXPY problem compilation overhead
 **Learning:** Re-compiling a CVXPY `Problem` object (i.e., `cp.Problem(objective, constraints)`) on every iteration inside a loop is incredibly slow. By parameterizing the variable data inputs using `cp.Parameter()`, compiling the problem once, and merely updating `.value` on those parameters per iteration, we achieve a ~4x reduction in solve times with no impact on the solution.
 **Action:** When solving convex optimizations in a loop, always use `cp.Parameter` for inputs that change across iterations, initialize the `cp.Problem` once, and update the parameter values rather than re-instantiating the entire problem.
+
+## 2024-10-24 - Pandas .map vs direct numpy ufunc
+**Learning:** Using `series.map(np.log)` on a Pandas Series is surprisingly slow because it delegates to Python's built-in map, forcing element-by-element iteration and creating Python object overhead. By applying the numpy ufunc directly to the Series (`np.log(series)`), the operation leverages compiled C extensions operating on contiguous memory arrays, which can yield ~30x speedups.
+**Action:** Always apply numpy universal functions directly to Pandas Series or DataFrames instead of wrapping them in `.map()` or `.apply()`.
