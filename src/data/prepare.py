@@ -285,7 +285,9 @@ def _prepare_factor_etf(
         series = subset.set_index("Date")[ticker].sort_index()
         series = series[~series.index.duplicated(keep="last")]
         relative = series / series.shift(1)
-        log_ret = relative.map(np.log).dropna()
+        # ⚡ Bolt Optimization: Replace .map(np.log) with direct numpy ufunc
+        # np.log(relative) uses C-level operations and avoids Python loop overhead
+        log_ret = np.log(relative).dropna()
         monthly = (
             log_ret.resample(processing.pandas_frequency)
             .sum()
