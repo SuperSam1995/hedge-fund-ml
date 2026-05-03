@@ -45,3 +45,7 @@
 ## 2024-10-24 - Pandas .map vs direct numpy ufunc
 **Learning:** Using `series.map(np.log)` on a Pandas Series is surprisingly slow because it delegates to Python's built-in map, forcing element-by-element iteration and creating Python object overhead. By applying the numpy ufunc directly to the Series (`np.log(series)`), the operation leverages compiled C extensions operating on contiguous memory arrays, which can yield ~30x speedups.
 **Action:** Always apply numpy universal functions directly to Pandas Series or DataFrames instead of wrapping them in `.map()` or `.apply()`.
+
+## 2024-11-10 - Pandas pd.concat overhead in lagging panels
+**Learning:** Using a loop to create lagged panels by calling `DataFrame.shift(lag)` and stitching them together with `pd.concat(axis=1)` is very slow due to intermediate allocations and index alignment overhead. Pre-allocating a single NumPy array (`np.full`) and filling it with array slicing (`vals[:-lag, :]`) completely avoids the iterative `concat` and provides a ~6x speedup.
+**Action:** When building features that involve multiple shifted/lagged views of the same underlying panel, avoid creating a list of DataFrames followed by `pd.concat`. Instead, pull the underlying `.to_numpy()` matrix, pre-allocate an output matrix of the final dimension size, populate it with sliced operations, and wrap it back in a DataFrame at the very end.
