@@ -7,7 +7,6 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -279,7 +278,9 @@ def _prepare_weights_long(weights: pd.DataFrame) -> pd.DataFrame:
     date_col = stacked.columns[0]
     stacked = stacked.rename(columns={date_col: "date"})
     strategy_col = stacked.columns[1]
-    stacked["strategy"] = stacked[strategy_col].apply(_normalise_label)
+    # ⚡ Bolt Optimization: Replace apply with list comprehension for speedup
+    # Series.apply has significant Python overhead compared to a list comprehension
+    stacked["strategy"] = [_normalise_label(val) for val in stacked[strategy_col]]
     extra_cols = [
         col for col in stacked.columns if col not in {"date", strategy_col, "weight", "strategy"}
     ]
